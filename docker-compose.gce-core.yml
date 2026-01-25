@@ -108,9 +108,7 @@ services:
       - ./config/prometheus/prometheus-gce.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     entrypoint: ["/bin/sh", "-c"]
-    command: |
-      sed -e "s|__GCP_PROJECT_ID__|$${GCP_PROJECT_ID}|g" -e "s|__GCP_ZONE__|$${GCP_ZONE}|g" /etc/prometheus/prometheus.yml > /etc/prometheus/prometheus.generated.yml && \
-      /bin/prometheus --config.file=/etc/prometheus/prometheus.generated.yml --storage.tsdb.path=/prometheus --web.enable-lifecycle
+    command: "sed -e \"s|__GCP_PROJECT_ID__|$${GCP_PROJECT_ID}|g\" -e \"s|__GCP_ZONE__|$${GCP_ZONE}|g\" /etc/prometheus/prometheus.yml > /etc/prometheus/prometheus.generated.yml; exec /bin/prometheus --config.file=/etc/prometheus/prometheus.generated.yml --storage.tsdb.path=/prometheus --web.enable-lifecycle"
 
   pushgateway:
     image: prom/pushgateway:v1.6.0
