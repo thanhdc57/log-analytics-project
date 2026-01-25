@@ -41,6 +41,7 @@ create_firewall_rule() {
 
   if gcloud compute firewall-rules describe "$name" >/dev/null 2>&1; then
     echo "Firewall rule $name already exists"
+    gcloud compute firewall-rules update "$name" --allow "$ports" >/dev/null
   else
     gcloud compute firewall-rules create "$name" \
       --allow "$ports" \
@@ -50,7 +51,7 @@ create_firewall_rule() {
 }
 
 echo "🔐 Creating firewall rules..."
-create_firewall_rule "log-analytics-core-allow" "tcp:9092,tcp:3000,tcp:9090,tcp:8080,tcp:8081,tcp:9091" "log-analytics-core"
+create_firewall_rule "log-analytics-core-allow" "tcp:9092,tcp:3000,tcp:9090,tcp:8080,tcp:8081,tcp:9091,tcp:8088" "log-analytics-core"
 
 echo "🖥️ Creating core VM (Kafka + Spark + Monitoring)..."
 if gcloud compute instances describe "$CORE_VM" --zone "$ZONE" >/dev/null 2>&1; then
