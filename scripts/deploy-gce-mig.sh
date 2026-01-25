@@ -63,6 +63,7 @@ else
     --tags "log-analytics-core" \
     --image-family "$IMAGE_FAMILY" \
     --image-project "$IMAGE_PROJECT" \
+    --scopes "https://www.googleapis.com/auth/cloud-platform" \
     --metadata "REPO_URL=$REPO_URL,GIT_BRANCH=$GIT_BRANCH" \
     --metadata-from-file startup-script="scripts/startup-core.sh"
 fi
