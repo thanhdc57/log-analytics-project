@@ -103,13 +103,16 @@ services:
       - "9090:9090"
     environment:
       GCP_PROJECT_ID: ${GCP_PROJECT_ID}
+      GCP_ZONE: ${GCP_ZONE:-asia-southeast1-a}
     volumes:
       - ./config/prometheus/prometheus-gce.yml:/etc/prometheus/prometheus.yml
       - prometheus-data:/prometheus
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.enable-lifecycle'
+      - /bin/sh
+      - -c
+      - |
+          sed -e "s|__GCP_PROJECT_ID__|$${GCP_PROJECT_ID}|g" -e "s|__GCP_ZONE__|$${GCP_ZONE}|g" /etc/prometheus/prometheus.yml > /etc/prometheus/prometheus.generated.yml && \
+          /bin/prometheus --config.file=/etc/prometheus/prometheus.generated.yml --storage.tsdb.path=/prometheus --web.enable-lifecycle
 
   pushgateway:
     image: prom/pushgateway:v1.6.0
