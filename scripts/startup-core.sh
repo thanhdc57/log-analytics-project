@@ -47,5 +47,6 @@ KAFKA_HOST=$KAFKA_HOST
 EOF
 
 cd /opt/log-analytics-project
+chmod +x ./scripts/render-prometheus-gce.sh
 GCP_PROJECT_ID="$GCP_PROJECT_ID" GCP_ZONE="$GCP_ZONE" ./scripts/render-prometheus-gce.sh
 docker-compose -f docker-compose.gce-core.yml up -d --build
