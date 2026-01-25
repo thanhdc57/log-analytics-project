@@ -37,9 +37,15 @@ fi
 KAFKA_HOST=$(curl -s -H "Metadata-Flavor: Google" \
   http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
 
+GCP_PROJECT_ID=$(curl -fsS -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/project/project-id)
+GCP_ZONE=$(curl -fsS -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/zone | awk -F/ '{print $NF}')
+
 cat >/opt/log-analytics-project/.env <<EOF
 KAFKA_HOST=$KAFKA_HOST
 EOF
 
 cd /opt/log-analytics-project
+GCP_PROJECT_ID="$GCP_PROJECT_ID" GCP_ZONE="$GCP_ZONE" ./scripts/render-prometheus-gce.sh
 docker-compose -f docker-compose.gce-core.yml up -d --build
