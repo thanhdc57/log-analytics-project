@@ -15,3 +15,16 @@ scrape_configs:
   - job_name: 'kafka'
     static_configs:
       - targets: ['kafka:9999']
+
+  # Log producer metrics via GCE service discovery (MIG)
+  - job_name: 'log-producer'
+    gce_sd_configs:
+      - project: ${GCP_PROJECT_ID}
+        zone: asia-southeast1-a
+    relabel_configs:
+      - source_labels: [__meta_gce_tags]
+        regex: .*log-producer.*
+        action: keep
+      - source_labels: [__meta_gce_private_ip]
+        target_label: __address__
+        replacement: ${1}:8000
