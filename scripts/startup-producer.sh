@@ -3,10 +3,11 @@
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-}"
-GIT_BRANCH="${GIT_BRANCH:-main}"
-KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-}"
-LOG_RATE="${LOG_RATE:-200}"
+META="http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+REPO_URL="$(curl -fsS -H "Metadata-Flavor: Google" "$META/REPO_URL" || true)"
+GIT_BRANCH="$(curl -fsS -H "Metadata-Flavor: Google" "$META/GIT_BRANCH" || echo "main")"
+KAFKA_BOOTSTRAP_SERVERS="$(curl -fsS -H "Metadata-Flavor: Google" "$META/KAFKA_BOOTSTRAP_SERVERS" || true)"
+LOG_RATE="$(curl -fsS -H "Metadata-Flavor: Google" "$META/LOG_RATE" || echo "200")"
 
 if [[ -z "$REPO_URL" ]]; then
   echo "ERROR: REPO_URL is required"

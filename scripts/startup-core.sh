@@ -3,8 +3,9 @@
 
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-}"
-GIT_BRANCH="${GIT_BRANCH:-main}"
+META="http://metadata.google.internal/computeMetadata/v1/instance/attributes"
+REPO_URL="$(curl -fsS -H "Metadata-Flavor: Google" "$META/REPO_URL" || true)"
+GIT_BRANCH="$(curl -fsS -H "Metadata-Flavor: Google" "$META/GIT_BRANCH" || echo "main")"
 
 if [[ -z "$REPO_URL" ]]; then
   echo "ERROR: REPO_URL is required"
