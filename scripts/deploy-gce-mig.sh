@@ -17,7 +17,7 @@ LOG_RATE="${LOG_RATE:-200}"
 
 CORE_VM="log-analytics-core"
 MIG_NAME="log-producer-mig"
-TEMPLATE_NAME="log-producer-template"
+TEMPLATE_NAME="log-producer-template-$(date +%Y%m%d-%H%M%S)"
 IMAGE_FAMILY="ubuntu-2204-lts"
 IMAGE_PROJECT="ubuntu-os-cloud"
 
@@ -72,11 +72,7 @@ gcloud compute instances describe "$CORE_VM" --zone "$ZONE" >/dev/null
 KAFKA_IP=$(gcloud compute instances describe "$CORE_VM" --zone "$ZONE" --format='get(networkInterfaces[0].networkIP)')
 KAFKA_BOOTSTRAP="$KAFKA_IP:9092"
 
-echo "⚙️ Creating/Updating instance template for MIG..."
-if gcloud compute instance-templates describe "$TEMPLATE_NAME" >/dev/null 2>&1; then
-  gcloud compute instance-templates delete "$TEMPLATE_NAME" -q
-fi
-
+echo "⚙️ Creating instance template for MIG..."
 gcloud compute instance-templates create "$TEMPLATE_NAME" \
   --machine-type "e2-standard-2" \
   --tags "log-producer" \
