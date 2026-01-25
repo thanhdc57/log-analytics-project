@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Startup script for the core VM (Kafka + Spark + Monitoring)
+
+set -euo pipefail
+
+REPO_URL="${REPO_URL:-}"
+GIT_BRANCH="${GIT_BRANCH:-main}"
+
+if [[ -z "$REPO_URL" ]]; then
+  echo "ERROR: REPO_URL is required"
+  exit 1
+fi
+
+apt-get update -y
+apt-get install -y ca-certificates curl gnupg lsb-release git
+
+if ! command -v docker >/dev/null 2>&1; then
+  apt-get install -y docker.io docker-compose-plugin
+  systemctl enable --now docker
+fi
+
+mkdir -p /opt
+if [[ ! -d /opt/log-analytics-project/.git ]]; then
+  git clone -b "$GIT_BRANCH" "$REPO_URL" /opt/log-analytics-project
+else
+  cd /opt/log-analytics-project
+  git fetch --all
+  git checkout "$GIT_BRANCH"
+  git pull
+fi
+
+KAFKA_HOST=$(curl -s -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip)
+
+cat >/opt/log-analytics-project/.env <<EOF
+KAFKA_HOST=$KAFKA_HOST
+EOF
+
+cd /opt/log-analytics-project
+docker compose -f docker-compose.gce-core.yml up -d --build
