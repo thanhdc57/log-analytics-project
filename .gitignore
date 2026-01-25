@@ -1,0 +1,42 @@
+# Logs
+*.log
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+.pytest_cache/
+
+# Environment
+.env
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Spark
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Reports
+load-tests/reports/*.html
+
+# Data
+data/
+/tmp/
+
+# OS
+.DS_Store
+Thumbs.db

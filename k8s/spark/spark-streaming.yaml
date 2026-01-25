@@ -1,0 +1,57 @@
+# Spark Operator CRD for Spark Streaming Job
+# First install Spark Operator: helm install spark-operator spark-operator/spark-operator --namespace log-analytics
+
+apiVersion: sparkoperator.k8s.io/v1beta2
+kind: SparkApplication
+metadata:
+  name: log-analytics-streaming
+  namespace: log-analytics
+spec:
+  type: Python
+  pythonVersion: "3"
+  mode: cluster
+  image: spark-streaming:latest
+  imagePullPolicy: IfNotPresent
+  mainApplicationFile: local:///opt/spark-apps/streaming/spark_streaming.py
+  sparkVersion: "3.5.0"
+  restartPolicy:
+    type: OnFailure
+    onFailureRetries: 3
+    onFailureRetryInterval: 10
+    onSubmissionFailureRetries: 5
+    onSubmissionFailureRetryInterval: 20
+  driver:
+    cores: 1
+    coreLimit: "1200m"
+    memory: "1g"
+    labels:
+      version: 3.5.0
+    serviceAccount: spark-operator-spark
+    env:
+      - name: KAFKA_BOOTSTRAP_SERVERS
+        value: "log-analytics-kafka-kafka-bootstrap:9092"
+      - name: KAFKA_TOPIC
+        value: "application-logs"
+      - name: PUSHGATEWAY_URL
+        value: "http://pushgateway:9091"
+  executor:
+    cores: 1
+    instances: 2
+    memory: "1g"
+    labels:
+      version: 3.5.0
+  dynamicAllocation:
+    enabled: true
+    initialExecutors: 2
+    minExecutors: 1
+    maxExecutors: 10
+  deps:
+    jars:
+      - https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.12/3.5.0/spark-sql-kafka-0-10_2.12-3.5.0.jar
+      - https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.6.0/kafka-clients-3.6.0.jar
+  monitoring:
+    exposeDriverMetrics: true
+    exposeExecutorMetrics: true
+    prometheus:
+      jmxExporterJar: /prometheus/jmx_prometheus_javaagent-0.19.0.jar
+      port: 8090
