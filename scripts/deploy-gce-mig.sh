@@ -18,6 +18,8 @@ LOG_RATE="${LOG_RATE:-200}"
 CORE_VM="log-analytics-core"
 MIG_NAME="log-producer-mig"
 TEMPLATE_NAME="log-producer-template"
+IMAGE_FAMILY="ubuntu-2204-lts"
+IMAGE_PROJECT="ubuntu-os-cloud"
 
 if [[ -z "$PROJECT_ID" ]]; then
   echo "ERROR: GCP_PROJECT_ID is required"
@@ -58,6 +60,8 @@ else
     --zone "$ZONE" \
     --machine-type "e2-standard-4" \
     --tags "log-analytics-core" \
+    --image-family "$IMAGE_FAMILY" \
+    --image-project "$IMAGE_PROJECT" \
     --metadata "REPO_URL=$REPO_URL,GIT_BRANCH=$GIT_BRANCH" \
     --metadata-from-file startup-script="scripts/startup-core.sh"
 fi
@@ -76,6 +80,8 @@ fi
 gcloud compute instance-templates create "$TEMPLATE_NAME" \
   --machine-type "e2-standard-2" \
   --tags "log-producer" \
+  --image-family "$IMAGE_FAMILY" \
+  --image-project "$IMAGE_PROJECT" \
   --metadata "REPO_URL=$REPO_URL,GIT_BRANCH=$GIT_BRANCH,KAFKA_BOOTSTRAP_SERVERS=$KAFKA_BOOTSTRAP,LOG_RATE=$LOG_RATE" \
   --metadata-from-file startup-script="scripts/startup-producer.sh"
 

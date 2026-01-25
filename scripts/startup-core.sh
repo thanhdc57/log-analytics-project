@@ -15,8 +15,12 @@ apt-get update -y
 apt-get install -y ca-certificates curl gnupg lsb-release git
 
 if ! command -v docker >/dev/null 2>&1; then
-  apt-get install -y docker.io docker-compose-plugin
+  apt-get install -y docker.io
   systemctl enable --now docker
+fi
+
+if ! command -v docker-compose >/dev/null 2>&1; then
+  apt-get install -y docker-compose
 fi
 
 mkdir -p /opt
@@ -37,4 +41,4 @@ KAFKA_HOST=$KAFKA_HOST
 EOF
 
 cd /opt/log-analytics-project
-docker compose -f docker-compose.gce-core.yml up -d --build
+docker-compose -f docker-compose.gce-core.yml up -d --build
