@@ -4,14 +4,12 @@
 apiVersion: sparkoperator.k8s.io/v1beta2
 kind: SparkApplication
 metadata:
-  name: log-analytics-streaming
+  name: log-analytics-streaming-v2
   namespace: log-analytics
 spec:
   type: Python
-  pythonVersion: "3"
   mode: cluster
   image: gcr.io/electric-tesla-482312-f2/spark-streaming:latest
-  imagePullPolicy: IfNotPresent
   mainApplicationFile: local:///opt/spark-apps/streaming/spark_streaming.py
   sparkVersion: "3.5.0"
   restartPolicy:
