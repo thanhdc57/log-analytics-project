@@ -190,11 +190,11 @@ services:
       - prometheus
 
   # ==================== LOG PRODUCER ====================
-  log-producer:
+  log-web:
     build:
-      context: ./src/producer
+      context: ./src/webload
       dockerfile: Dockerfile
-    container_name: log-producer
+    container_name: log-web
     depends_on:
       - kafka-1
       - kafka-2
@@ -202,8 +202,8 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka-1:29092,kafka-2:29093,kafka-3:29094
       KAFKA_TOPIC: application-logs
-      LOG_RATE: 100
-    restart: unless-stopped
+    ports:
+      - "8088:8088"
 
 volumes:
   spark-logs:

@@ -20,6 +20,6 @@ scrape_configs:
       - targets: ['kafka-1:9999', 'kafka-2:9999', 'kafka-3:9999']
 
   # Log producer metrics
-  - job_name: 'log-producer'
+  - job_name: 'log-web'
     static_configs:
-      - targets: ['log-producer:8000']
+      - targets: ['log-web:8088']

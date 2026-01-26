@@ -8,11 +8,23 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from kafka import KafkaProducer
+from prometheus_client import make_asgi_app, Counter, Gauge, Histogram
 
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:29092")
 KAFKA_TOPIC = os.getenv("KAFKA_TOPIC", "application-logs")
 
+# Prometheus metrics
+logs_produced_total = Counter('logs_produced_total', 'Total number of logs produced', ['level', 'service'])
+logs_per_second = Gauge('logs_per_second', 'Current log production rate')
+log_size_bytes = Histogram('log_size_bytes', 'Size of produced logs in bytes', 
+                           buckets=[100, 200, 500, 1000, 2000, 5000])
+kafka_send_latency = Histogram('kafka_send_latency_seconds', 'Latency of Kafka send operations',
+                               buckets=[0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0])
+
 app = FastAPI()
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
+
 templates = Jinja2Templates(directory="templates")
 
 SERVICES = [
@@ -86,12 +98,30 @@ def _run_scenario(rate: int, duration: int):
     req_id = 0
     interval = 1.0
 
+    logs_per_second.set(rate)
+
     try:
         while not _stop_event.is_set() and (time.time() - start) < duration:
             batch_start = time.time()
             for _ in range(rate):
                 req_id += 1
-                producer.send(KAFKA_TOPIC, value=_make_log(req_id))
+                log_entry = _make_log(req_id)
+                
+                # Metrics: Size
+                log_json = json.dumps(log_entry)
+                log_size_bytes.observe(len(log_json.encode('utf-8')))
+
+                # Send
+                send_start = time.time()
+                producer.send(KAFKA_TOPIC, value=log_entry)
+                kafka_send_latency.observe(time.time() - send_start)
+
+                # Metrics: Count
+                logs_produced_total.labels(
+                    level=log_entry['level'],
+                    service=log_entry['service']
+                ).inc()
+
             producer.flush()
             elapsed = time.time() - batch_start
             sleep_time = max(0.0, interval - elapsed)
@@ -100,6 +130,7 @@ def _run_scenario(rate: int, duration: int):
     finally:
         producer.flush()
         producer.close()
+        logs_per_second.set(0)
         with _lock:
             _running = False
             _current["scenario"] = None
