@@ -51,7 +51,8 @@ echo "🧹 Cleaning up potential conflicting resources (Aggressive Mode)..."
 helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found --wait || true
 
 # 2. Delete CRDs (Crucial for downgrade)
-kubectl get crd | grep strimzi | awk '{print $1}' | xargs kubectl delete crd --ignore-not-found
+# Using -r to avoid error if no CRDs found
+kubectl get crd | grep strimzi | awk '{print $1}' | xargs -r kubectl delete crd --ignore-not-found || true
 
 # 3. Aggressive cleanup of leftovers
 # ... (kubectl delete commands are fine) ...
