@@ -106,6 +106,8 @@ kubectl apply -f k8s/producer/deployment.yaml
 # kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
 
 # Update and deploy Spark
+# Reset image name first to prevent double prefix on re-runs
+sed -i "s|gcr.io/$PROJECT_ID/spark-streaming:latest|spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
 sed -i "s|spark-streaming:latest|gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
 kubectl apply -f k8s/spark/spark-streaming.yaml
 

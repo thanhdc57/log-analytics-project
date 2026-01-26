@@ -10,7 +10,7 @@ spec:
   type: Python
   pythonVersion: "3"
   mode: cluster
-  image: spark-streaming:latest
+  image: gcr.io/electric-tesla-482312-f2/spark-streaming:latest
   imagePullPolicy: IfNotPresent
   mainApplicationFile: local:///opt/spark-apps/streaming/spark_streaming.py
   sparkVersion: "3.5.0"
