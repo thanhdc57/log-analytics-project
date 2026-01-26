@@ -41,7 +41,7 @@ kubectl apply -f k8s/namespace.yaml
 # Step 3: Install Strimzi Kafka Operator
 echo "🔧 Step 3: Installing Strimzi Kafka Operator..."
 kubectl create namespace strimzi-system --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f 'https://strimzi.io/install/latest?namespace=log-analytics' -n log-analytics
+kubectl apply -f 'https://strimzi.io/install/0.44.0?namespace=log-analytics' -n log-analytics
 
 # Wait for operator
 echo "⏳ Waiting for Strimzi Operator..."

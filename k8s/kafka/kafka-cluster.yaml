@@ -1,7 +1,7 @@
 # Kafka deployment using Strimzi Operator
 # First install Strimzi: kubectl apply -f https://strimzi.io/install/latest?namespace=log-analytics
 
-apiVersion: kafka.strimzi.io/v1
+apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: log-analytics-kafka
@@ -64,7 +64,7 @@ spec:
     topicOperator: {}
     userOperator: {}
 ---
-apiVersion: kafka.strimzi.io/v1
+apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaTopic
 metadata:
   name: application-logs
