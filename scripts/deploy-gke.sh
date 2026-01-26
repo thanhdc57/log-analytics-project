@@ -43,6 +43,14 @@ echo "🔧 Step 3: Installing Strimzi Kafka Operator..."
 kubectl create namespace strimzi-system --dry-run=client -o yaml | kubectl apply -f -
 helm repo add strimzi https://strimzi.io/charts/
 helm repo update
+
+# Cleanup conflicting resources from previous installs to avoid Helm errors
+echo "🧹 Cleaning up potential conflicting resources..."
+kubectl delete rolebinding strimzi-cluster-operator-watched -n log-analytics --ignore-not-found
+kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
+kubectl delete rolebinding strimzi-cluster-operator-entity-operator-delegation -n log-analytics --ignore-not-found
+kubectl delete rolebinding strimzi-cluster-operator-topic-operator-delegation -n log-analytics --ignore-not-found
+
 helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
     --namespace log-analytics \
     --version 0.44.0 \
