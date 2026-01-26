@@ -104,3 +104,13 @@ data:
         type: file
         options:
           path: /var/lib/grafana/dashboards
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: log-analytics
+data:
+  # Empty placeholder to allow starting. 
+  # Real dashboards can be added here or imported via UI.
+  empty.json: "{}"
