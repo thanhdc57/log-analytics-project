@@ -72,21 +72,22 @@ kubectl apply -f k8s/monitoring/grafana.yaml
 
 # Step 7: Build and Push Docker Images
 echo "🐳 Step 7: Building and pushing Docker images..."
-# Log Producer
-docker build -t gcr.io/$PROJECT_ID/log-producer:latest src/producer/
-docker push gcr.io/$PROJECT_ID/log-producer:latest
+# Log Producer (Now using log-web source)
+docker build -t gcr.io/$PROJECT_ID/log-web:latest src/webload/
+docker push gcr.io/$PROJECT_ID/log-web:latest
 
 # Spark Streaming
 docker build -t gcr.io/$PROJECT_ID/spark-streaming:latest src/streaming/
 docker push gcr.io/$PROJECT_ID/spark-streaming:latest
 
 # Update image in deployment
-sed -i "s|log-producer:latest|gcr.io/$PROJECT_ID/log-producer:latest|g" k8s/producer/deployment.yaml
+sed -i "s|log-producer:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deployment.yaml
 
 # Step 8: Deploy Applications
 echo "🚀 Step 8: Deploying Applications..."
+kubectl apply -f k8s/producer/rbac.yaml
 kubectl apply -f k8s/producer/deployment.yaml
-kubectl apply -f k8s/hpa/log-producer-hpa.yaml
+# kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
 
 # Update and deploy Spark
 sed -i "s|spark-streaming:latest|gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark/spark-streaming.yaml

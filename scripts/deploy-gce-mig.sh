@@ -74,33 +74,33 @@ gcloud compute instances describe "$CORE_VM" --zone "$ZONE" >/dev/null
 KAFKA_IP=$(gcloud compute instances describe "$CORE_VM" --zone "$ZONE" --format='get(networkInterfaces[0].networkIP)')
 KAFKA_BOOTSTRAP="$KAFKA_IP:9092"
 
-echo "⚙️ Creating instance template for MIG..."
-gcloud compute instance-templates create "$TEMPLATE_NAME" \
-  --machine-type "e2-standard-2" \
-  --tags "log-producer" \
-  --image-family "$IMAGE_FAMILY" \
-  --image-project "$IMAGE_PROJECT" \
-  --metadata "REPO_URL=$REPO_URL,GIT_BRANCH=$GIT_BRANCH,KAFKA_BOOTSTRAP_SERVERS=$KAFKA_BOOTSTRAP,LOG_RATE=$LOG_RATE" \
-  --metadata-from-file startup-script="scripts/startup-producer.sh"
+# echo "⚙️ Creating instance template for MIG..."
+# gcloud compute instance-templates create "$TEMPLATE_NAME" \
+#   --machine-type "e2-standard-2" \
+#   --tags "log-producer" \
+#   --image-family "$IMAGE_FAMILY" \
+#   --image-project "$IMAGE_PROJECT" \
+#   --metadata "REPO_URL=$REPO_URL,GIT_BRANCH=$GIT_BRANCH,KAFKA_BOOTSTRAP_SERVERS=$KAFKA_BOOTSTRAP,LOG_RATE=$LOG_RATE" \
+#   --metadata-from-file startup-script="scripts/startup-producer.sh"
 
-echo "📦 Creating/Updating MIG..."
-if gcloud compute instance-groups managed describe "$MIG_NAME" --zone "$ZONE" >/dev/null 2>&1; then
-  gcloud compute instance-groups managed set-instance-template "$MIG_NAME" \
-    --zone "$ZONE" \
-    --template "$TEMPLATE_NAME"
-else
-  gcloud compute instance-groups managed create "$MIG_NAME" \
-    --zone "$ZONE" \
-    --template "$TEMPLATE_NAME" \
-    --size 1
-fi
+# echo "📦 Creating/Updating MIG..."
+# if gcloud compute instance-groups managed describe "$MIG_NAME" --zone "$ZONE" >/dev/null 2>&1; then
+#   gcloud compute instance-groups managed set-instance-template "$MIG_NAME" \
+#     --zone "$ZONE" \
+#     --template "$TEMPLATE_NAME"
+# else
+#   gcloud compute instance-groups managed create "$MIG_NAME" \
+#     --zone "$ZONE" \
+#     --template "$TEMPLATE_NAME" \
+#     --size 1
+# fi
 
-gcloud compute instance-groups managed set-autoscaling "$MIG_NAME" \
-  --zone "$ZONE" \
-  --min-num-replicas 1 \
-  --max-num-replicas 5 \
-  --target-cpu-utilization 0.6 \
-  --cool-down-period 90
+# gcloud compute instance-groups managed set-autoscaling "$MIG_NAME" \
+#   --zone "$ZONE" \
+#   --min-num-replicas 1 \
+#   --max-num-replicas 5 \
+#   --target-cpu-utilization 0.6 \
+#   --cool-down-period 90
 
 CORE_EXT_IP=$(gcloud compute instances describe "$CORE_VM" --zone "$ZONE" --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
 
@@ -113,7 +113,8 @@ echo "Grafana:    http://$CORE_EXT_IP:3000 (admin/admin123)"
 echo "Prometheus: http://$CORE_EXT_IP:9090"
 echo "Kafka UI:   http://$CORE_EXT_IP:8080"
 echo "Spark UI:   http://$CORE_EXT_IP:8081"
+echo "Log Web UI: http://$CORE_EXT_IP:8088"
 echo ""
-echo "MIG Name: $MIG_NAME"
+# echo "MIG Name: $MIG_NAME"
 echo "Kafka Bootstrap: $KAFKA_BOOTSTRAP"
 echo ""

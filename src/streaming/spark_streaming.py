@@ -59,15 +59,31 @@ def read_from_kafka(spark):
         .load()
 
 
+import time
+from pyspark.sql.functions import udf
+
+# ...
+
+@udf(StringType())
+def heavy_processing_simulation(val):
+    """Simulate CPU intensive task to force scaling"""
+    # Sleep to simulate heavy processing (configurable via env var ideally, but hardcoded for demo is fine)
+    # 0.05s * 1000 logs/batch = 50s processing time -> backlog!
+    time.sleep(0.01) 
+    return val
+
 def parse_logs(kafka_df):
-    """Parse JSON logs from Kafka messages"""
-    return kafka_df \
+    """Parse JSON logs from Kafka messages and simulate load"""
+    parsed = kafka_df \
         .selectExpr("CAST(value AS STRING) as json_str", "timestamp as kafka_timestamp") \
         .select(
             from_json(col("json_str"), LOG_SCHEMA).alias("log"),
             col("kafka_timestamp")
         ) \
         .select("log.*", "kafka_timestamp")
+    
+    # Apply simulation (Identity transformation but slow)
+    return parsed.withColumn("message", heavy_processing_simulation(col("message")))
 
 
 def calculate_metrics(parsed_df):

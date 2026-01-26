@@ -1,71 +1,84 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: log-producer
+  name: log-web-manager
   namespace: log-analytics
   labels:
-    app: log-producer
+    app: log-web-manager
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: log-producer
+      app: log-web-manager
   template:
     metadata:
       labels:
-        app: log-producer
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "8000"
-        prometheus.io/path: "/metrics"
+        app: log-web-manager
     spec:
+      serviceAccountName: log-web-manager
       containers:
-        - name: log-producer
-          image: log-producer:latest
+        - name: log-web-manager
+          image: log-web:latest
           imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 8000
-              name: metrics
+            - containerPort: 8088
+              name: http
           env:
+            - name: CLUSTER_MODE
+              value: "true"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "log-analytics-kafka-kafka-bootstrap:9092"
             - name: KAFKA_TOPIC
               value: "application-logs"
-            - name: LOG_RATE
-              value: "100"
-            - name: METRICS_PORT
-              value: "8000"
-          resources:
-            requests:
-              memory: "128Mi"
-              cpu: "100m"
-            limits:
-              memory: "256Mi"
-              cpu: "500m"
-          livenessProbe:
-            httpGet:
-              path: /metrics
-              port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /metrics
-              port: 8000
-            initialDelaySeconds: 5
-            periodSeconds: 5
+              path: /status
+              port: 8088
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: log-producer
+  name: log-web-manager
   namespace: log-analytics
-  labels:
-    app: log-producer
 spec:
   selector:
-    app: log-producer
+    app: log-web-manager
   ports:
-    - port: 8000
-      targetPort: 8000
-      name: metrics
+    - port: 8088
+      targetPort: 8088
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-web-worker
+  namespace: log-analytics
+  labels:
+    app: log-web-worker
+spec:
+  replicas: 0 # Controlled by Manager
+  selector:
+    matchLabels:
+      app: log-web-worker
+  template:
+    metadata:
+      labels:
+        app: log-web-worker
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8088"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: log-web-worker
+          image: log-web:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: AUTO_START
+              value: "true"
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: "log-analytics-kafka-kafka-bootstrap:9092"
+            - name: KAFKA_TOPIC
+              value: "application-logs"
+          ports:
+            - containerPort: 8088

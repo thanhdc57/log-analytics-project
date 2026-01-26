@@ -1,10 +1,16 @@
 import os
+from kubernetes import client, config
 import json
 import time
 import random
 import threading
+import logging
 from datetime import datetime
 from fastapi import FastAPI, Request
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from kafka import KafkaProducer
@@ -161,12 +167,64 @@ def status():
         })
 
 
+CLUSTER_MODE = os.getenv("CLUSTER_MODE", "false").lower() == "true"
+WORKER_DEPLOYMENT = "log-web-worker"
+NAMESPACE = "log-analytics"
+
+class ClusterManager:
+    def __init__(self):
+        self.enabled = False
+        try:
+            config.load_incluster_config()
+            self.apps_v1 = client.AppsV1Api()
+            self.enabled = True
+            logger.info("ClusterManager: Kubernetes config loaded successfully.")
+        except Exception as e:
+            logger.warning(f"ClusterManager: Failed to load K8s config. Scaling disabled. Error: {e}")
+
+    def scale_workers(self, replicas: int):
+        if not self.enabled:
+            return False
+        try:
+            logger.info(f"ClusterManager: Scaling {WORKER_DEPLOYMENT} to {replicas} replicas.")
+            # Patch the deployment
+            body = {"spec": {"replicas": replicas}}
+            self.apps_v1.patch_namespaced_deployment_scale(
+                name=WORKER_DEPLOYMENT,
+                namespace=NAMESPACE,
+                body=body
+            )
+            return True
+        except Exception as e:
+            logger.error(f"ClusterManager: Scaling failed: {e}")
+            return False
+
+cluster_manager = ClusterManager() if CLUSTER_MODE else None
+
 @app.post("/start/{name}")
 def start(name: str):
     global _running, _thread
     if name not in SCENARIOS:
         return JSONResponse({"error": "Unknown scenario"}, status_code=400)
 
+    # CLUSTER MODE LOGIC
+    if CLUSTER_MODE and cluster_manager:
+        target_replicas = 1  # Default
+        if name == "stress": target_replicas = 5
+        if name == "spike": target_replicas = 10
+        
+        success = cluster_manager.scale_workers(target_replicas)
+        if success:
+             with _lock:
+                _running = True
+                _current["scenario"] = name
+                _current["rate"] = f"Cluster Scale: {target_replicas} workers"
+                _current["started_at"] = datetime.utcnow().isoformat() + "Z"
+             return JSONResponse({"ok": True, "scenario": name, "mode": "cluster", "replicas": target_replicas})
+        else:
+             return JSONResponse({"error": "Failed to scale cluster"}, status_code=500)
+
+    # LOCAL MODE LOGIC (Legacy)
     with _lock:
         if _running:
             return JSONResponse({"error": "Scenario already running"}, status_code=400)
@@ -183,6 +241,40 @@ def start(name: str):
     )
     _thread.start()
     return JSONResponse({"ok": True, "scenario": name})
+
+
+@app.on_event("startup")
+def startup_event():
+    # Helper to start scenario in a separate thread
+    def auto_start():
+        logger.info("Checking AUTO_START configuration...")
+        auto_start_env = os.getenv("AUTO_START", "false").lower()
+        if auto_start_env == "true":
+            logger.info("AUTO_START is enabled. Starting baseline scenario...")
+            # Give Kafka a moment to be ready
+            time.sleep(10)
+            
+            # Simulate a start request
+            global _running, _thread
+            name = "baseline"
+            
+            with _lock:
+                if not _running:
+                    _running = True
+                    _current["scenario"] = name
+                    _current["rate"] = SCENARIOS[name]["rate"]
+                    _current["started_at"] = datetime.utcnow().isoformat() + "Z"
+                    
+                    _stop_event.clear()
+                    _thread = threading.Thread(
+                        target=_run_scenario,
+                        args=(SCENARIOS[name]["rate"], SCENARIOS[name]["duration"]),
+                        daemon=True,
+                    )
+                    _thread.start()
+                    logger.info(f"Auto-started scenario: {name}")
+
+    threading.Thread(target=auto_start, daemon=True).start()
 
 
 @app.post("/stop")

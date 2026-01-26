@@ -17,15 +17,7 @@ scrape_configs:
       - targets: ['kafka:9999']
 
   # Log producer metrics via GCE service discovery (MIG)
-  - job_name: 'log-producer'
-    gce_sd_configs:
-      - project: __GCP_PROJECT_ID__
-        zone: __GCP_ZONE__
-    relabel_configs:
-      - source_labels: [__meta_gce_tags]
-        regex: .*log-producer.*
-        action: keep
-      - source_labels: [__meta_gce_private_ip]
-        regex: (.+)
-        target_label: __address__
-        replacement: $1:8000
+  # Log Web Metrics (Local on Core VM)
+  - job_name: 'log-web'
+    static_configs:
+      - targets: ['log-web:8088']
