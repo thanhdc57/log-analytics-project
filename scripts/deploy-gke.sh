@@ -45,11 +45,23 @@ helm repo add strimzi https://strimzi.io/charts/
 helm repo update
 
 # Cleanup conflicting resources from previous installs to avoid Helm errors
-echo "🧹 Cleaning up potential conflicting resources..."
+echo "🧹 Cleaning up potential conflicting resources (Aggressive Mode)..."
+# Namespace-scoped
 kubectl delete rolebinding strimzi-cluster-operator-watched -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator-entity-operator-delegation -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator-topic-operator-delegation -n log-analytics --ignore-not-found
+
+# Cluster-scoped (The root cause of "Detection of Kubernetes version failed")
+kubectl delete clusterrolebinding strimzi-cluster-operator-namespaced --ignore-not-found
+kubectl delete clusterrolebinding strimzi-cluster-operator-leader-election --ignore-not-found
+kubectl delete clusterrolebinding strimzi-cluster-operator-global --ignore-not-found
+kubectl delete clusterrole strimzi-cluster-operator-namespaced --ignore-not-found
+kubectl delete clusterrole strimzi-cluster-operator-leader-election --ignore-not-found
+kubectl delete clusterrole strimzi-cluster-operator-global --ignore-not-found
+kubectl delete clusterrole strimzi-kafka-broker --ignore-not-found
+kubectl delete clusterrole strimzi-entity-operator --ignore-not-found
+kubectl delete clusterrole strimzi-topic-operator --ignore-not-found
 
 helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
     --namespace log-analytics \
