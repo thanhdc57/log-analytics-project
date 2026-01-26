@@ -84,6 +84,7 @@ helm upgrade --install spark-operator spark-operator/spark-operator \
 # Step 6: Deploy Monitoring
 echo "📊 Step 6: Deploying Monitoring Stack..."
 kubectl apply -f k8s/monitoring/prometheus.yaml
+kubectl apply -f k8s/monitoring/pushgateway.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
 
 # Step 7: Build and Push Docker Images
