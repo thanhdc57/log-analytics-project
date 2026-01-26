@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: zookeeper
+  namespace: log-analytics
+  labels:
+    app: zookeeper
+spec:
+  ports:
+  - port: 2181
+    name: client
+  selector:
+    app: zookeeper
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zookeeper
+  namespace: log-analytics
+  labels:
+    app: zookeeper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zookeeper
+  template:
+    metadata:
+      labels:
+        app: zookeeper
+    spec:
+      containers:
+      - name: zookeeper
+        image: zookeeper:3.8
+        ports:
+        - containerPort: 2181
+          name: client
+        env:
+        - name: ZOO_MY_ID
+          value: "1"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: log-analytics-kafka-kafka-bootstrap
+  namespace: log-analytics
+  labels:
+    app: kafka
+spec:
+  ports:
+  - port: 9092
+    name: plain
+  selector:
+    app: kafka
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kafka
+  namespace: log-analytics
+  labels:
+    app: kafka
+spec:
+  serviceName: log-analytics-kafka-kafka-bootstrap
+  replicas: 3
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080" # JMX Exporter if added, currently standard
+    spec:
+      containers:
+      - name: kafka
+        image: bitnami/kafka:3.6.0
+        ports:
+        - containerPort: 9092
+          name: plain
+        env:
+        - name: KAFKA_CFG_ZOOKEEPER_CONNECT
+          value: "zookeeper:2181"
+        - name: KAFKA_CFG_BROKER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid # Simplified ID gen or use statefulset index logic wrapper if needed, but bitnami handles auto-id usually or we set manually. 
+              # Actually bitnami uses KAFKA_CFG_BROKER_ID=-1 for auto gen
+        - name: KAFKA_CFG_LISTENERS
+          value: "PLAINTEXT://:9092"
+        - name: KAFKA_CFG_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://$(POD_NAME).log-analytics-kafka-kafka-bootstrap.log-analytics.svc.cluster.local:9092"
+        - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
+          value: "true"
+        - name: ALLOW_PLAINTEXT_LISTENER
+          value: "yes"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"

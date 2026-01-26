@@ -39,48 +39,40 @@ echo "📁 Step 2: Creating namespace..."
 kubectl apply -f k8s/namespace.yaml
 
 # Step 3: Install Strimzi Kafka Operator
-# Step 3: Install Strimzi Kafka Operator
-echo "🔧 Step 3: Installing Strimzi Kafka Operator (YAML Method)..."
-
-# 0. Ensure YOU have admin rights (Required on GKE to grant rights to others)
-echo "   🔑 Granting admin rights to current user..."
-USER_ACCOUNT=$(gcloud config get-value core/account)
-kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$USER_ACCOUNT --dry-run=client -o yaml | kubectl apply -f -
-
-# 1. Cleanup Old Installations (Helm & YAML)
-echo "   🧹 Cleaning up old installations..."
+# Step 3: Deploy Kafka Cluster (Manual Mode - No Operator)
+# Using standard StatefulSet to verify GKE environment and bypass RBAC issues
+echo "� Step 3: Deploying Kafka (Manual Mode)..."
+echo "   🧹 Removing any old Operator leftovers..."
+# Cleanup old operator stuff just in case
 helm uninstall strimzi-operator-fresh -n log-analytics --ignore-not-found --wait || true
 helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found --wait || true
-# Delete old CRDs to ensure clean slate
-kubectl get crd | grep strimzi | awk '{print $1}' | xargs -r kubectl delete crd --ignore-not-found
+kubectl delete deployment strimzi-cluster-operator -n log-analytics --ignore-not-found
+kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found # Cleanup key CRD
 
-# 2. Cleanup leftovers
-kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
-kubectl delete clusterrolebinding strimzi-cluster-operator-namespaced --ignore-not-found
-kubectl delete clusterrolebinding strimzi-cluster-operator-leader-election --ignore-not-found
-kubectl delete clusterrolebinding strimzi-cluster-operator-global --ignore-not-found
+echo "   🚀 Applying Kafka Manifests..."
+kubectl apply -f k8s/kafka/kafka-manual.yaml
 
-echo "   ⏳ Waiting for cleanup..."
-sleep 15
+# Wait for Zookeeper
+echo "   ⏳ Waiting for Zookeeper..."
+kubectl wait deployment/zookeeper --for=condition=Available --timeout=300s -n log-analytics
 
-# 3. Install via YAML (Stable Method)
-echo "   🚀 Installing Strimzi 0.44.0..."
-curl -L https://github.com/strimzi/strimzi-kafka-operator/releases/download/0.44.0/strimzi-cluster-operator-0.44.0.yaml \
-  | sed 's/namespace: .*/namespace: log-analytics/' \
-  | kubectl apply -f - -n log-analytics
+# Wait for Kafka
+echo "   ⏳ Waiting for Kafka..."
+# Wait for at least one pod ready
+kubectl wait pod/kafka-0 --for=condition=Ready --timeout=300s -n log-analytics
 
 # Wait for operator
 echo "⏳ Waiting for Strimzi Operator..."
 kubectl wait --for=condition=available --timeout=300s deployment/strimzi-cluster-operator -n log-analytics
 
-# Step 4: Deploy Kafka
-echo "📨 Step 4: Deploying Kafka Cluster..."
-kubectl apply -f k8s/kafka/kafka-metrics-config.yaml
-kubectl apply -f k8s/kafka/kafka-cluster.yaml
+# Step 4: Skip (Kafka deployed in Step 3)
+# echo "📨 Step 4: Deploying Kafka Cluster..."
+# kubectl apply -f k8s/kafka/kafka-metrics-config.yaml
+# kubectl apply -f k8s/kafka/kafka-cluster.yaml
 
 # Wait for Kafka
-echo "⏳ Waiting for Kafka cluster (this may take 5-10 minutes)..."
-kubectl wait kafka/log-analytics-kafka --for=condition=Ready --timeout=600s -n log-analytics
+# echo "⏳ Waiting for Kafka cluster (this may take 5-10 minutes)..."
+# kubectl wait kafka/log-analytics-kafka --for=condition=Ready --timeout=600s -n log-analytics
 
 # Step 5: Install Spark Operator
 echo "🔧 Step 5: Installing Spark Operator..."
