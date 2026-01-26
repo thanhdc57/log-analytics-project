@@ -65,11 +65,11 @@ kubectl delete rolebinding strimzi-cluster-operator-topic-operator-delegation -n
 echo "⏳ Waiting for cleanup to finalize..."
 sleep 15 
 
-# Fresh Install with FORCE and NEW RELEASE NAME to bypass stuck resources
 helm upgrade --install strimzi-operator-fresh strimzi/strimzi-kafka-operator \
     --namespace log-analytics \
     --version 0.44.0 \
     --force \
+    --set fullnameOverride=strimzi-fresh \
     --set watchAnyNamespace=false \
     --set watchNamespaces="{log-analytics}"
 
