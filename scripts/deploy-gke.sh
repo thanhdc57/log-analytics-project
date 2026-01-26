@@ -109,6 +109,7 @@ kubectl apply -f k8s/producer/deployment.yaml
 # Reset image name first to prevent double prefix on re-runs
 sed -i "s|gcr.io/$PROJECT_ID/spark-streaming:latest|spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
 sed -i "s|spark-streaming:latest|gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
+kubectl apply -f k8s/spark/rbac.yaml
 kubectl apply -f k8s/spark/spark-streaming.yaml
 
 # Step 9: Get URLs
