@@ -90,12 +90,12 @@ kubectl apply -f k8s/monitoring/grafana.yaml
 # Step 7: Build and Push Docker Images
 echo "🐳 Step 7: Building and pushing Docker images..."
 # Log Producer (Now using log-web source)
-docker build -t gcr.io/$PROJECT_ID/log-web:latest src/webload/
-docker push gcr.io/$PROJECT_ID/log-web:latest
+# Using Cloud Build to bypass Cloud Shell network restrictions
+yes | gcloud auth configure-docker || true
+gcloud builds submit --tag gcr.io/$PROJECT_ID/log-web:latest src/webload/
 
 # Spark Streaming
-docker build -t gcr.io/$PROJECT_ID/spark-streaming:latest src/streaming/
-docker push gcr.io/$PROJECT_ID/spark-streaming:latest
+gcloud builds submit --tag gcr.io/$PROJECT_ID/spark-streaming:latest src/streaming/
 
 # Update image in deployment
 sed -i "s|log-producer:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deployment.yaml
