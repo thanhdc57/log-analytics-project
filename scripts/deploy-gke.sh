@@ -78,8 +78,7 @@ helm repo add spark-operator https://kubeflow.github.io/spark-operator
 helm repo update
 helm upgrade --install spark-operator spark-operator/spark-operator \
     --namespace log-analytics \
-    --set webhook.enable=true \
-    --set image.tag=v1beta2-1.4.0-3.5.0
+    --set webhook.enable=true
 
 # Step 6: Deploy Monitoring
 echo "📊 Step 6: Deploying Monitoring Stack..."
@@ -98,7 +97,7 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/log-web:latest src/webload/
 gcloud builds submit --tag gcr.io/$PROJECT_ID/spark-streaming:latest src/streaming/
 
 # Update image in deployment
-sed -i "s|log-producer:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deployment.yaml
+sed -i "s|log-web:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deployment.yaml
 
 # Step 8: Deploy Applications
 echo "🚀 Step 8: Deploying Applications..."
