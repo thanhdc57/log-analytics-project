@@ -46,6 +46,16 @@ helm repo update
 
 # Cleanup conflicting resources from previous installs to avoid Helm errors
 echo "🧹 Cleaning up potential conflicting resources (Aggressive Mode)..."
+
+# 1. Uninstall existing Release FIRST
+helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found || true
+
+# 2. Delete CRDs (Crucial for downgrade)
+# CRDs need to be cleaned up manually as Helm doesn't touch them
+# This is crucial when downgrading from 0.50.0 to 0.44.0
+kubectl get crd | grep strimzi | awk '{print $1}' | xargs kubectl delete crd --ignore-not-found
+
+# 3. Aggressive cleanup of leftovers (RoleBindings, ClusterRoles, etc.)
 # Namespace-scoped
 kubectl delete rolebinding strimzi-cluster-operator-watched -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
@@ -60,13 +70,11 @@ kubectl delete clusterrole strimzi-cluster-operator-namespaced --ignore-not-foun
 kubectl delete clusterrole strimzi-cluster-operator-leader-election --ignore-not-found
 kubectl delete clusterrole strimzi-cluster-operator-global --ignore-not-found
 kubectl delete clusterrole strimzi-kafka-broker --ignore-not-found
-# CRDs need to be cleaned up manually as Helm doesn't touch them
-# This is crucial when downgrading from 0.50.0 to 0.44.0
-kubectl get crd | grep strimzi | awk '{print $1}' | xargs kubectl delete crd --ignore-not-found
+kubectl delete clusterrole strimzi-entity-operator --ignore-not-found
+kubectl delete clusterrole strimzi-topic-operator --ignore-not-found
 
-# Uninstall existing release to force fresh start
-helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found || true
-sleep 10 # Wait for cleanup
+echo "⏳ Waiting for cleanup to finalize..."
+sleep 15 # Increased wait time
 
 # Fresh Install
 helm install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
