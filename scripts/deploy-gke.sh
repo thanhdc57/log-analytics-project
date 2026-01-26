@@ -60,10 +60,16 @@ kubectl delete clusterrole strimzi-cluster-operator-namespaced --ignore-not-foun
 kubectl delete clusterrole strimzi-cluster-operator-leader-election --ignore-not-found
 kubectl delete clusterrole strimzi-cluster-operator-global --ignore-not-found
 kubectl delete clusterrole strimzi-kafka-broker --ignore-not-found
-kubectl delete clusterrole strimzi-entity-operator --ignore-not-found
-kubectl delete clusterrole strimzi-topic-operator --ignore-not-found
+# CRDs need to be cleaned up manually as Helm doesn't touch them
+# This is crucial when downgrading from 0.50.0 to 0.44.0
+kubectl get crd | grep strimzi | awk '{print $1}' | xargs kubectl delete crd --ignore-not-found
 
-helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
+# Uninstall existing release to force fresh start
+helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found || true
+sleep 10 # Wait for cleanup
+
+# Fresh Install
+helm install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
     --namespace log-analytics \
     --version 0.44.0 \
     --set watchAnyNamespace=false \
