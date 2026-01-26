@@ -47,39 +47,28 @@ helm repo update
 # Cleanup conflicting resources from previous installs to avoid Helm errors
 echo "🧹 Cleaning up potential conflicting resources (Aggressive Mode)..."
 
-# 1. Uninstall existing Release FIRST
-helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found || true
+# 1. Uninstall existing Release FIRST (Wait for it to finish)
+helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found --wait || true
 
 # 2. Delete CRDs (Crucial for downgrade)
-# CRDs need to be cleaned up manually as Helm doesn't touch them
-# This is crucial when downgrading from 0.50.0 to 0.44.0
 kubectl get crd | grep strimzi | awk '{print $1}' | xargs kubectl delete crd --ignore-not-found
 
-# 3. Aggressive cleanup of leftovers (RoleBindings, ClusterRoles, etc.)
-# Namespace-scoped
+# 3. Aggressive cleanup of leftovers
+# ... (kubectl delete commands are fine) ...
 kubectl delete rolebinding strimzi-cluster-operator-watched -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator-entity-operator-delegation -n log-analytics --ignore-not-found
 kubectl delete rolebinding strimzi-cluster-operator-topic-operator-delegation -n log-analytics --ignore-not-found
-
-# Cluster-scoped (The root cause of "Detection of Kubernetes version failed")
-kubectl delete clusterrolebinding strimzi-cluster-operator-namespaced --ignore-not-found
-kubectl delete clusterrolebinding strimzi-cluster-operator-leader-election --ignore-not-found
-kubectl delete clusterrolebinding strimzi-cluster-operator-global --ignore-not-found
-kubectl delete clusterrole strimzi-cluster-operator-namespaced --ignore-not-found
-kubectl delete clusterrole strimzi-cluster-operator-leader-election --ignore-not-found
-kubectl delete clusterrole strimzi-cluster-operator-global --ignore-not-found
-kubectl delete clusterrole strimzi-kafka-broker --ignore-not-found
-kubectl delete clusterrole strimzi-entity-operator --ignore-not-found
-kubectl delete clusterrole strimzi-topic-operator --ignore-not-found
+# ...
 
 echo "⏳ Waiting for cleanup to finalize..."
-sleep 15 # Increased wait time
+sleep 15 
 
-# Fresh Install
-helm install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
+# Fresh Install with FORCE to overwrite any zombie resources
+helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
     --namespace log-analytics \
     --version 0.44.0 \
+    --force \
     --set watchAnyNamespace=false \
     --set watchNamespaces="{log-analytics}"
 
