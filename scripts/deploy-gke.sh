@@ -61,9 +61,7 @@ echo "   ⏳ Waiting for Kafka..."
 # Wait for at least one pod ready
 kubectl wait pod/kafka-0 --for=condition=Ready --timeout=300s -n log-analytics
 
-# Wait for operator
-echo "⏳ Waiting for Strimzi Operator..."
-kubectl wait --for=condition=available --timeout=300s deployment/strimzi-cluster-operator -n log-analytics
+# Operator wait skipped (Manual Mode)
 
 # Step 4: Skip (Kafka deployed in Step 3)
 # echo "📨 Step 4: Deploying Kafka Cluster..."

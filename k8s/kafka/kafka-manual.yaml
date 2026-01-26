@@ -98,6 +98,10 @@ spec:
               # Actually bitnami uses KAFKA_CFG_BROKER_ID=-1 for auto gen
         - name: KAFKA_CFG_LISTENERS
           value: "PLAINTEXT://:9092"
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
         - name: KAFKA_CFG_ADVERTISED_LISTENERS
           value: "PLAINTEXT://$(POD_NAME).log-analytics-kafka-kafka-bootstrap.log-analytics.svc.cluster.local:9092"
         - name: KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE
