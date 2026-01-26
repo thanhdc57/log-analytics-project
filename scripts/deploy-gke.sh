@@ -39,39 +39,35 @@ echo "📁 Step 2: Creating namespace..."
 kubectl apply -f k8s/namespace.yaml
 
 # Step 3: Install Strimzi Kafka Operator
-echo "🔧 Step 3: Installing Strimzi Kafka Operator..."
-kubectl create namespace strimzi-system --dry-run=client -o yaml | kubectl apply -f -
-helm repo add strimzi https://strimzi.io/charts/
-helm repo update
+# Step 3: Install Strimzi Kafka Operator
+echo "🔧 Step 3: Installing Strimzi Kafka Operator (YAML Method)..."
 
-# Cleanup conflicting resources from previous installs to avoid Helm errors
-echo "🧹 Cleaning up potential conflicting resources (Aggressive Mode)..."
+# 0. Ensure YOU have admin rights (Required on GKE to grant rights to others)
+echo "   🔑 Granting admin rights to current user..."
+USER_ACCOUNT=$(gcloud config get-value core/account)
+kubectl create clusterrolebinding cluster-admin-binding --clusterrole=cluster-admin --user=$USER_ACCOUNT --dry-run=client -o yaml | kubectl apply -f -
 
-# 1. Uninstall existing Release FIRST (Wait for it to finish)
+# 1. Cleanup Old Installations (Helm & YAML)
+echo "   🧹 Cleaning up old installations..."
+helm uninstall strimzi-operator-fresh -n log-analytics --ignore-not-found --wait || true
 helm uninstall strimzi-kafka-operator -n log-analytics --ignore-not-found --wait || true
+# Delete old CRDs to ensure clean slate
+kubectl get crd | grep strimzi | awk '{print $1}' | xargs -r kubectl delete crd --ignore-not-found
 
-# 2. Delete CRDs (Crucial for downgrade)
-# Using -r to avoid error if no CRDs found
-kubectl get crd | grep strimzi | awk '{print $1}' | xargs -r kubectl delete crd --ignore-not-found || true
-
-# 3. Aggressive cleanup of leftovers
-# ... (kubectl delete commands are fine) ...
-kubectl delete rolebinding strimzi-cluster-operator-watched -n log-analytics --ignore-not-found
+# 2. Cleanup leftovers
 kubectl delete rolebinding strimzi-cluster-operator -n log-analytics --ignore-not-found
-kubectl delete rolebinding strimzi-cluster-operator-entity-operator-delegation -n log-analytics --ignore-not-found
-kubectl delete rolebinding strimzi-cluster-operator-topic-operator-delegation -n log-analytics --ignore-not-found
-# ...
+kubectl delete clusterrolebinding strimzi-cluster-operator-namespaced --ignore-not-found
+kubectl delete clusterrolebinding strimzi-cluster-operator-leader-election --ignore-not-found
+kubectl delete clusterrolebinding strimzi-cluster-operator-global --ignore-not-found
 
-echo "⏳ Waiting for cleanup to finalize..."
-sleep 15 
+echo "   ⏳ Waiting for cleanup..."
+sleep 15
 
-helm upgrade --install strimzi-operator-fresh strimzi/strimzi-kafka-operator \
-    --namespace log-analytics \
-    --version 0.44.0 \
-    --force \
-    --set fullnameOverride=strimzi-fresh \
-    --set watchAnyNamespace=false \
-    --set watchNamespaces="{log-analytics}"
+# 3. Install via YAML (Stable Method)
+echo "   🚀 Installing Strimzi 0.44.0..."
+curl -L https://github.com/strimzi/strimzi-kafka-operator/releases/download/0.44.0/strimzi-cluster-operator-0.44.0.yaml \
+  | sed 's/namespace: .*/namespace: log-analytics/' \
+  | kubectl apply -f - -n log-analytics
 
 # Wait for operator
 echo "⏳ Waiting for Strimzi Operator..."
