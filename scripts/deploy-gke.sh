@@ -78,7 +78,8 @@ helm repo add spark-operator https://kubeflow.github.io/spark-operator
 helm repo update
 helm upgrade --install spark-operator spark-operator/spark-operator \
     --namespace log-analytics \
-    --set webhook.enable=true
+    --set webhook.enable=true \
+    --set sparkJobNamespaces={log-analytics}
 
 # Step 6: Deploy Monitoring
 echo "📊 Step 6: Deploying Monitoring Stack..."
