@@ -41,7 +41,13 @@ kubectl apply -f k8s/namespace.yaml
 # Step 3: Install Strimzi Kafka Operator
 echo "🔧 Step 3: Installing Strimzi Kafka Operator..."
 kubectl create namespace strimzi-system --dry-run=client -o yaml | kubectl apply -f -
-curl -L https://github.com/strimzi/strimzi-kafka-operator/releases/download/0.44.0/strimzi-cluster-operator-0.44.0.yaml | sed 's/namespace: .*/namespace: log-analytics/' | kubectl apply -f - -n log-analytics
+helm repo add strimzi https://strimzi.io/charts/
+helm repo update
+helm upgrade --install strimzi-kafka-operator strimzi/strimzi-kafka-operator \
+    --namespace log-analytics \
+    --version 0.44.0 \
+    --set watchAnyNamespace=false \
+    --set watchNamespaces="{log-analytics}"
 
 # Wait for operator
 echo "⏳ Waiting for Strimzi Operator..."
