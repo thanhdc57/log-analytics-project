@@ -72,14 +72,28 @@ kubectl wait pod/kafka-0 --for=condition=Ready --timeout=300s -n log-analytics
 # echo "⏳ Waiting for Kafka cluster (this may take 5-10 minutes)..."
 # kubectl wait kafka/log-analytics-kafka --for=condition=Ready --timeout=600s -n log-analytics
 
-# Step 5: Install Spark Operator
-echo "🔧 Step 5: Installing Spark Operator..."
-helm repo add spark-operator https://kubeflow.github.io/spark-operator
-helm repo update
-helm upgrade --install spark-operator spark-operator/spark-operator \
-    --namespace log-analytics \
-    --set webhook.enable=true \
-    --set sparkJobNamespaces={log-analytics}
+# Step 5: Deploy Spark Cluster (Manual Mode)
+echo "🔥 Step 5: Deploying Spark Cluster (Manual Mode)..."
+# Cleanup old operator stuff just in case
+helm uninstall spark-operator -n log-analytics --ignore-not-found --wait || true
+kubectl delete sparkapp --all -n log-analytics --ignore-not-found || true
+kubectl delete deployment spark-operator-webhook -n log-analytics --ignore-not-found || true
+
+# Update Image in Manual Manifests
+echo "   🔧 Configuring Spark Manifests..."
+# Reset placeholders first
+sed -i "s|image: .*/spark-streaming:latest|image: spark-streaming:latest|g" k8s/spark-manual/*.yaml
+# Apply Project ID
+sed -i "s|image: spark-streaming:latest|image: gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark-manual/*.yaml
+
+echo "   🚀 Applying Spark Master & Worker..."
+kubectl apply -f k8s/spark-manual/spark-master.yaml
+kubectl apply -f k8s/spark-manual/spark-worker.yaml
+kubectl apply -f k8s/spark-manual/spark-worker-hpa.yaml
+
+echo "   ⏳ Waiting for Spark Master..."
+kubectl wait deployment/spark-master --for=condition=Available --timeout=300s -n log-analytics
+
 
 # Step 6: Deploy Monitoring
 echo "📊 Step 6: Deploying Monitoring Stack..."
@@ -106,12 +120,12 @@ kubectl apply -f k8s/producer/rbac.yaml
 kubectl apply -f k8s/producer/deployment.yaml
 # kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
 
-# Update and deploy Spark
-# Reset image name first to prevent double prefix on re-runs
-sed -i "s|gcr.io/$PROJECT_ID/spark-streaming:latest|spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
-sed -i "s|spark-streaming:latest|gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark/spark-streaming.yaml
-kubectl apply -f k8s/spark/rbac.yaml
-kubectl apply -f k8s/spark/spark-streaming.yaml
+# Deploy Spark Submit Job
+echo "   🚀 Submitting Spark Job (Manual)..."
+# Delete old job to force re-run
+kubectl delete job spark-submit -n log-analytics --ignore-not-found
+kubectl apply -f k8s/spark-manual/spark-submit-job.yaml
+
 
 # Step 9: Get URLs
 echo ""
@@ -121,9 +135,10 @@ echo "=========================================="
 echo ""
 echo "📊 Access URLs:"
 GRAFANA_IP=""
-WEB_IP=""
-PROMETHEUS_IP=""
-SPARK_UI_IP=""
+WEB_IP=$(kubectl get svc log-web -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+PROMETHEUS_IP=$(kubectl get svc prometheus-service -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+SPARK_UI_IP=$(kubectl get svc spark-master -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
 
 echo "   ⏳ Waiting for LoadBalancers to assign IPs..."
 sleep 10
