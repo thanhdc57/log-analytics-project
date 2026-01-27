@@ -35,6 +35,7 @@ spec:
       containers:
       - name: spark-master
         image: spark-streaming:latest
+        imagePullPolicy: Always
         command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
         ports:
         - containerPort: 7077

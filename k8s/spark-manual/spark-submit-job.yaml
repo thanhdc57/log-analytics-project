@@ -12,6 +12,7 @@ spec:
       containers:
       - name: spark-submit
         image: spark-streaming:latest
+        imagePullPolicy: Always
         command:
         - /opt/spark/bin/spark-submit
         - --master

@@ -59,8 +59,29 @@ def read_from_kafka(spark):
         .load()
 
 
-    # No simulation - Processing at max speed
-    return parsed
+import time
+from pyspark.sql.functions import udf
+
+@udf(StringType())
+def heavy_processing_simulation(val):
+    """Simulate CPU intensive task to force scaling (Busy Wait)"""
+    # Busy loop to burn CPU cycles (trigger HPA) without sleeping
+    # 5000 iterations of math is negligible latency but measurable CPU
+    _ = [x**2 for x in range(5000)]
+    return val
+
+def parse_logs(kafka_df):
+    """Parse JSON logs from Kafka messages and simulate load"""
+    parsed = kafka_df \
+        .selectExpr("CAST(value AS STRING) as json_str", "timestamp as kafka_timestamp") \
+        .select(
+            from_json(col("json_str"), LOG_SCHEMA).alias("log"),
+            col("kafka_timestamp")
+        ) \
+        .select("log.*", "kafka_timestamp")
+    
+    # Apply simulation (Busy Wait for CPU Scaling)
+    return parsed.withColumn("message", heavy_processing_simulation(col("message")))
 
 
 def calculate_metrics(parsed_df):
