@@ -50,6 +50,8 @@ kubectl delete deployment strimzi-cluster-operator -n log-analytics --ignore-not
 kubectl delete crd kafkas.kafka.strimzi.io --ignore-not-found # Cleanup key CRD
 
 echo "   🚀 Applying Kafka Manifests..."
+# Restart Kafka to ensure clean state
+kubectl delete -f k8s/kafka/kafka-manual.yaml --ignore-not-found
 kubectl apply -f k8s/kafka/kafka-manual.yaml
 
 # Wait for Zookeeper
@@ -87,6 +89,11 @@ sed -i "s|image: .*/spark-streaming:latest|image: spark-streaming:latest|g" k8s/
 sed -i "s|image: spark-streaming:latest|image: gcr.io/$PROJECT_ID/spark-streaming:latest|g" k8s/spark-manual/*.yaml
 
 echo "   🚀 Applying Spark Master & Worker..."
+# Restart Spark Cluster
+kubectl delete -f k8s/spark-manual/spark-master.yaml --ignore-not-found
+kubectl delete -f k8s/spark-manual/spark-worker.yaml --ignore-not-found
+kubectl delete -f k8s/spark-manual/spark-worker-hpa.yaml --ignore-not-found
+
 kubectl apply -f k8s/spark-manual/spark-master.yaml
 kubectl apply -f k8s/spark-manual/spark-worker.yaml
 kubectl apply -f k8s/spark-manual/spark-worker-hpa.yaml
@@ -97,6 +104,11 @@ kubectl wait deployment/spark-master --for=condition=Available --timeout=300s -n
 
 # Step 6: Deploy Monitoring
 echo "📊 Step 6: Deploying Monitoring Stack..."
+# Restart Monitoring
+kubectl delete -f k8s/monitoring/prometheus.yaml --ignore-not-found
+kubectl delete -f k8s/monitoring/pushgateway.yaml --ignore-not-found
+kubectl delete -f k8s/monitoring/grafana.yaml --ignore-not-found
+
 kubectl apply -f k8s/monitoring/prometheus.yaml
 kubectl apply -f k8s/monitoring/pushgateway.yaml
 kubectl apply -f k8s/monitoring/grafana.yaml
@@ -117,6 +129,8 @@ sed -i "s|log-web:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deplo
 # Step 8: Deploy Applications
 echo "🚀 Step 8: Deploying Applications..."
 kubectl apply -f k8s/producer/rbac.yaml
+# Restart Log Manager
+kubectl delete -f k8s/producer/deployment.yaml --ignore-not-found
 kubectl apply -f k8s/producer/deployment.yaml
 # kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
 
