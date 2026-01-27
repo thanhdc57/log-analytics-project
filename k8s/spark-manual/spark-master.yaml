@@ -54,3 +54,8 @@ spec:
           value: "no"
         - name: SPARK_SSL_ENABLED
           value: "no"
+        - name: SPARK_MASTER_PORT
+          value: "7077"
+        - name: SPARK_MASTER_WEBUI_PORT
+          value: "8080"
+

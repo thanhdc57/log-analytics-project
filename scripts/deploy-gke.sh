@@ -135,9 +135,10 @@ echo "=========================================="
 echo ""
 echo "📊 Access URLs:"
 GRAFANA_IP=""
-WEB_IP=$(kubectl get svc log-web -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-PROMETHEUS_IP=$(kubectl get svc prometheus-service -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+WEB_IP=$(kubectl get svc log-web-manager -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+PROMETHEUS_IP=$(kubectl get svc prometheus -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 SPARK_UI_IP=$(kubectl get svc spark-master -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+
 
 
 echo "   ⏳ Waiting for LoadBalancers to assign IPs..."
