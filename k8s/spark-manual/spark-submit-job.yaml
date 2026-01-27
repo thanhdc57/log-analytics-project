@@ -20,10 +20,18 @@ spec:
         - client
         - --conf
         - spark.jars.ivy=/tmp/.ivy2
+        - --conf
+        - spark.driver.host=$(POD_IP)
+        - --conf
+        - spark.driver.bindAddress=$(POD_IP)
         - --packages
         - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
         - /opt/spark-apps/streaming/spark_streaming.py
         env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: "log-analytics-kafka-kafka-bootstrap:9092"
         - name: KAFKA_TOPIC

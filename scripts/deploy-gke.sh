@@ -152,31 +152,32 @@ get_lb_ip() {
 GRAFANA_IP=$(get_lb_ip grafana)
 WEB_IP=$(get_lb_ip log-web-manager)
 PROMETHEUS_IP=$(get_lb_ip prometheus)
-# Spark UI service is usually named <app-name>-ui-svc
-SPARK_UI_IP=$(get_lb_ip log-analytics-streaming-v2-ui-svc)
+# Spark Master UI
+SPARK_UI_IP=$(get_lb_ip spark-master)
 
 # Create Output File
 OUTPUT_FILE="access-urls.txt"
 cat <<EOF > $OUTPUT_FILE
-==================================================
-🚀 LOG ANALYTICS SYSTEM - ACCESS LINKS
-==================================================
+==============================================
+✅ Deployment Complete!
+==============================================
 
-1. 📊 GRAFANA (Monitoring Dashboard)
+📊 Access URLs:
+1. � Grafana Dashboard:
    URL: http://$GRAFANA_IP:3000
-   User: admin
-   Pass: admin123
+   User: admin / Pass: admin123
 
-2. 🌐 LOG WEB MANAGER (Control Panel)
+2. 🕸️ Log Web Manager:
    URL: http://$WEB_IP:8088
-   Note: Use this to Start/Stop log generation scenerios.
+   Endpoints: /status, /start, /stop
 
-3. � PROMETHEUS (Metrics Server)
+3. 🔍 Prometheus UI:
    URL: http://$PROMETHEUS_IP:9090
 
-4. ⚡ SPARK STREAMING UI (Driver Interface)
-   URL: http://$SPARK_UI_IP:4040
-   Note: Only available when Spark Driver is running.
+4. ⚡ SPARK MASTER UI:
+   URL: http://$SPARK_UI_IP:8080
+   Note: View running applications here.
+
 
 5. 📨 KAFKA BROKERS (Internal Cluster DNS)
    - kafka-0.log-analytics-kafka-kafka-bootstrap.log-analytics.svc:9092
