@@ -60,9 +60,9 @@ HTTP_ENDPOINTS = [
 
 SCENARIOS = {
     "baseline": {"rate": 1000, "duration": 86400},
-    "stress": {"rate": 1000, "duration": 600},
-    "spike": {"rate": 5000, "duration": 180},
-    "endurance": {"rate": 3000, "duration": 1800},
+    "stress": {"rate": 10000, "duration": 600},       # 10 workers
+    "spike": {"rate": 20000, "duration": 180},         # 20 workers
+    "endurance": {"rate": 5000, "duration": 1800},     # 5  workers
 }
 
 _lock = threading.Lock()

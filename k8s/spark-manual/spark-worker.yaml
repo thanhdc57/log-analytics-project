@@ -30,6 +30,12 @@ spec:
           value: "1g"
         - name: SPARK_MASTER_URL
           value: "spark://spark-master:7077"
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: "log-analytics-kafka-kafka-bootstrap:9092"
+        - name: KAFKA_TOPIC
+          value: "application-logs"
+        - name: PUSHGATEWAY_URL
+          value: "http://pushgateway:9091"
         resources:
           requests:
             cpu: 500m
