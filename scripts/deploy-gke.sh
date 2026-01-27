@@ -155,19 +155,34 @@ SPARK_UI_IP=$(kubectl get svc spark-master -n log-analytics -o jsonpath='{.statu
 
 
 
-echo "   ⏳ Waiting for LoadBalancers to assign IPs..."
-sleep 10
+echo "   ⏳ Waiting for LoadBalancers to assign IPs (this may take a minute)..."
 
-# Helper to get IP
-get_lb_ip() {
-    kubectl get svc $1 -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "Pending"
+# Helper to wait for IP
+wait_for_ip() {
+    local service=$1
+    local ip=""
+    # Loop 24 times * 5s = 120s max wait
+    for i in {1..24}; do
+        ip=$(kubectl get svc $service -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
+        if [ -n "$ip" ]; then
+            echo "$ip"
+            return
+        fi
+        echo -n "." >&2
+        sleep 5
+    done
+    echo "Pending"
 }
 
-GRAFANA_IP=$(get_lb_ip grafana)
-WEB_IP=$(get_lb_ip log-web-manager)
-PROMETHEUS_IP=$(get_lb_ip prometheus)
+GRAFANA_IP=$(wait_for_ip grafana)
+echo "" >&2
+WEB_IP=$(wait_for_ip log-web-manager)
+echo "" >&2
+PROMETHEUS_IP=$(wait_for_ip prometheus)
+echo "" >&2
 # Spark Master UI
-SPARK_UI_IP=$(get_lb_ip spark-master)
+SPARK_UI_IP=$(wait_for_ip spark-master)
+echo "" >&2
 
 # Create Output File
 OUTPUT_FILE="access-urls.txt"
