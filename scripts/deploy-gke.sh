@@ -120,11 +120,61 @@ echo "✅ Deployment Complete!"
 echo "=========================================="
 echo ""
 echo "📊 Access URLs:"
-GRAFANA_IP=$(kubectl get svc grafana -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
-echo "   Grafana: http://$GRAFANA_IP:3000 (admin/admin123)"
+GRAFANA_IP=""
+WEB_IP=""
+PROMETHEUS_IP=""
+SPARK_UI_IP=""
+
+echo "   ⏳ Waiting for LoadBalancers to assign IPs..."
+sleep 10
+
+# Helper to get IP
+get_lb_ip() {
+    kubectl get svc $1 -n log-analytics -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "Pending"
+}
+
+GRAFANA_IP=$(get_lb_ip grafana)
+WEB_IP=$(get_lb_ip log-web-manager)
+PROMETHEUS_IP=$(get_lb_ip prometheus)
+# Spark UI service is usually named <app-name>-ui-svc
+SPARK_UI_IP=$(get_lb_ip log-analytics-streaming-v2-ui-svc)
+
+# Create Output File
+OUTPUT_FILE="access-urls.txt"
+cat <<EOF > $OUTPUT_FILE
+==================================================
+🚀 LOG ANALYTICS SYSTEM - ACCESS LINKS
+==================================================
+
+1. 📊 GRAFANA (Monitoring Dashboard)
+   URL: http://$GRAFANA_IP:3000
+   User: admin
+   Pass: admin123
+
+2. 🌐 LOG WEB MANAGER (Control Panel)
+   URL: http://$WEB_IP:8088
+   Note: Use this to Start/Stop log generation scenerios.
+
+3. � PROMETHEUS (Metrics Server)
+   URL: http://$PROMETHEUS_IP:9090
+
+4. ⚡ SPARK STREAMING UI (Driver Interface)
+   URL: http://$SPARK_UI_IP:4040
+   Note: Only available when Spark Driver is running.
+
+5. 📨 KAFKA BROKERS (Internal Cluster DNS)
+   - kafka-0.log-analytics-kafka-kafka-bootstrap.log-analytics.svc:9092
+   - kafka-1.log-analytics-kafka-kafka-bootstrap.log-analytics.svc:9092
+   - kafka-2.log-analytics-kafka-kafka-bootstrap.log-analytics.svc:9092
+
+==================================================
+Generated at: $(date)
+EOF
+
+cat $OUTPUT_FILE
 echo ""
+echo "✅ Links saved to $OUTPUT_FILE"
 echo "📌 Useful Commands:"
 echo "   kubectl get pods -n log-analytics"
-echo "   kubectl get hpa -n log-analytics"
-echo "   kubectl logs -f deployment/log-producer -n log-analytics"
+echo "   kubectl logs -f deployment/log-web-manager -n log-analytics"
 echo ""

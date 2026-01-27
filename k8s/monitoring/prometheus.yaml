@@ -53,7 +53,7 @@ spec:
   ports:
     - port: 9090
       targetPort: 9090
-  type: ClusterIP
+  type: LoadBalancer
 ---
 apiVersion: v1
 kind: ServiceAccount
