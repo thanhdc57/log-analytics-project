@@ -1,130 +1,95 @@
 # Log Analytics Project - Cloud Computing BTL
 
-Hệ thống phân tích log real-time với khả năng tự động co dãn (auto-scaling) trên Google Cloud Platform.
+Hệ thống phân tích log real-time mô phỏng kiến trúc E-commerce (Shopee) với khả năng tự động co dãn (auto-scaling) trên Google Kubernetes Engine (GKE).
 
-## 🎯 Tính Năng
+📄 **[Xem Tài liệu Kiến trúc Hệ thống Chi tiết (SYSTEM_ARCHITECTURE.md)](SYSTEM_ARCHITECTURE.md)**
 
-- **Real-time Processing**: Xử lý log theo thời gian thực với Spark Streaming
-- **Auto-scaling**: Tự động scale theo tải (Kafka partitions, Spark executors, K8s pods)
-- **Monitoring**: Dashboard Grafana hiển thị metrics real-time
-- **Load Testing**: Locust với 4 kịch bản test khác nhau
+## 🎯 Tính Năng Chính
+
+- **High Throughput**: Xử lý tới **20,000 logs/s** (tương đương Flash Sale).
+- **Real-time Processing**: Spark Streaming xử lý dữ liệu với độ trễ thấp (< 1s).
+- **Auto-scaling đa tầng**:
+    - **Log Workers**: Tự động scale từ 1 -> 20 workers theo kịch bản tải (Cluster Manager).
+    - **Spark Workers**: Tự động scale từ 1 -> 5 workers theo CPU (K8s HPA).
+- **Full Observability**: Dashboard Grafana giám sát toàn diện (Business Metrics, System Health, Kafka Lag).
 
 ## 🛠 Tech Stack
 
-| Component | Technology |
-|-----------|------------|
-| Message Queue | Apache Kafka (3 brokers) |
-| Stream Processing | Spark Structured Streaming |
-| Batch Processing | Spark SQL |
-| Monitoring | Prometheus + Grafana |
-| Container | Docker / Kubernetes |
-| Cloud | Google Cloud (GKE) |
+| Component | Technology | Deploy Mode |
+|-----------|------------|-------------|
+| **Log Generator** | Python (FastAPI + Kafka Producer) | **Client Controller** (Manager/Worker) |
+| **Message Queue** | Apache Kafka | StatefulSet (3 Brokers) |
+| **Stream Processing** | Apache Spark 3.5 | **Standalone Cluster** (Master/Worker) |
+| **Monitoring** | Prometheus + Pushgateway | K8s Deployment |
+| **Visualization** | Grafana | K8s Deployment |
+| **Infrastructure** | Google Kubernetes Engine (GKE) | Regional Cluster |
 
-## 📂 Project Structure
+## 📂 Cấu Trúc Dự Án
 
 ```
 log-analytics-project/
-├── docker-compose.yml      # Local development
+├── docker-compose.gce-core.yml # Local/VM deployment reference
 ├── src/
-│   ├── producer/           # Log generator (Python)
-│   ├── streaming/          # Spark Streaming job
-│   └── batch/              # Spark Batch analytics
-├── k8s/                    # Kubernetes manifests
-│   ├── kafka/              # Strimzi Kafka cluster
-│   ├── spark/              # Spark Operator jobs
-│   ├── hpa/                # Horizontal Pod Autoscalers
-│   └── monitoring/         # Prometheus + Grafana
-├── config/                 # Configuration files
-├── dashboards/             # Grafana dashboards
-├── load-tests/             # Locust load testing
+│   ├── webload/            # Log Generator (Manager + Worker logic)
+│   └── streaming/          # Spark Streaming Application
+├── k8s/                    # Kubernetes Manifests
+│   ├── kafka/              # Manual Kafka Cluster
+│   ├── producer/           # Log Web Manager & Workers
+│   ├── spark-manual/       # Spark Master, Worker (HPA), Submit Job
+│   └── monitoring/         # Prometheus, Grafana, Pushgateway
 ├── scripts/                # Automation scripts
-└── docs/                   # Documentation
+│   └── deploy-gke.sh       # Script deploy toàn bộ lên GKE
+└── SYSTEM_ARCHITECTURE.md  # Tài liệu kiến trúc chi tiết
 ```
 
-## 🚀 Quick Start (Local)
+## 🚀 Hướng Dẫn Deploy (GKE)
 
-### Prerequisites
-- Docker Desktop (8GB+ RAM)
-- Python 3.9+
+### Yêu cầu
+- Google Cloud Project (có Billing).
+- `gcloud` CLI & `kubectl` đã cài đặt.
 
-### Start System
-```bash
-# Windows
-scripts\start-local.bat
+### Các Bước Triển Khai
+1. **Cấu hình Project ID:**
+   ```bash
+   export PROJECT_ID=your-project-id
+   gcloud config set project $PROJECT_ID
+   ```
 
-# Or manually
-docker compose up -d
-```
+2. **Chạy Script Deploy:**
+   (Script này sẽ tự động tạo Cluster, cài đặt Kafka, Spark, Monitoring và Deploy App)
+   ```bash
+   chmod +x scripts/deploy-gke.sh
+   ./scripts/deploy-gke.sh
+   ```
 
-### Access UIs
-| Service | URL | Credentials |
-|---------|-----|-------------|
-| Kafka UI | http://localhost:8080 | - |
-| Spark Master | http://localhost:8081 | - |
-| Prometheus | http://localhost:9090 | - |
-| Grafana | http://localhost:3000 | admin / admin123 |
+3. **Truy Cập Hệ Thống:**
+   Sau khi deploy xong, script sẽ xuất ra các đường dẫn truy cập:
+   - **Log Web UI**: Để điều khiển kịch bản tải.
+   - **Grafana**: `admin` / `admin123` (Xem Dashboard).
+   - **Spark Master UI**: Xem trạng thái Cluster và Jobs.
 
-### Run Load Tests
-```bash
-# Windows - Interactive menu
-scripts\run-load-test.bat
+## 📊 Kịch Bản Test Tải (Shopee Style)
 
-# Manual
-cd load-tests
-pip install -r requirements.txt
-locust -f locustfile.py --users 10 --spawn-rate 1 --run-time 5m
-```
+Hệ thống hỗ trợ 4 kịch bản mô phỏng thực tế:
 
-## ☁️ Deploy to GKE
+| Kịch Bản | Mục Tiêu (Logs/s) | Số Worker (Scale) | Mô Tả |
+|----------|-------------------|-------------------|-------|
+| **Baseline** | 1,000 | 1 | Ngày thường, traffic ổn định. |
+| **Endurance** | 3,000 | 3 | Giờ cao điểm tối (Evening Peak). |
+| **Stress** | 10,000 | 10 | **9.9 Sale Campaign**. |
+| **Spike** | 20,000 | 20 | **Flash Sale 0h**. Traffic nổ tung. |
 
-### Prerequisites
-- Google Cloud account with billing
-- gcloud CLI installed
-- kubectl configured
+## 📈 Cơ Chế Auto-Scaling
 
-### Deploy
-```bash
-# Set project ID
-export GCP_PROJECT_ID=your-project-id
+### 1. Log Generator Scaling (Custom Controller)
+- **Cơ chế**: `Log Web Manager` nhận lệnh từ UI -> Gọi K8s API để patch số lượng replica của `log-web-worker`.
+- **Logic**: 
+    - Baseline -> 1 Replica.
+    - Spike -> 20 Replicas.
+    - Stop/Timeout -> 0 Replicas (Tiết kiệm tài nguyên).
 
-# Run deployment script
-chmod +x scripts/deploy-gke.sh
-./scripts/deploy-gke.sh
-```
+### 2. Spark Worker Scaling (K8s HPA)
+- **Cơ chế**: Kubernetes Horizontal Pod Autoscaler.
+- **Trigger**: CPU Utilization > 50%.
+- **Range**: Min 1 - Max 5 Workers.
 
-## 📊 Load Test Scenarios
-
-| Scenario | Users | Rate | Duration | Purpose |
-|----------|-------|------|----------|---------|
-| Baseline | 10 | 100/s | 5 min | Establish baseline |
-| Stress | 100 | 1000/s | 10 min | Test scale-up |
-| Spike | 500 | 5000/s | 3 min | Test sudden surge |
-| Endurance | 50 | 500/s | 30 min | Test stability |
-
-## 📈 Auto-Scaling Configuration
-
-### Kafka
-- 3 brokers, 12 partitions
-- Replication factor: 3
-
-### Spark (Dynamic Allocation)
-- Min executors: 1
-- Max executors: 10
-- Scale trigger: Processing time > batch interval
-
-### Kubernetes (HPA)
-- Min pods: 1
-- Max pods: 10
-- Scale trigger: CPU > 70% or Memory > 80%
-
-## 👥 Team Members
-
-1. [Tên - MSSV]
-2. [Tên - MSSV]
-3. [Tên - MSSV]
-4. [Tên - MSSV]
-5. [Tên - MSSV]
-
-## 📝 License
-
-This project is for educational purposes - Cloud Computing course.

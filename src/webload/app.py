@@ -59,10 +59,10 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": 100, "duration": 300},
+    "baseline": {"rate": 1000, "duration": 86400},
     "stress": {"rate": 1000, "duration": 600},
     "spike": {"rate": 5000, "duration": 180},
-    "endurance": {"rate": 300, "duration": 1800},
+    "endurance": {"rate": 3000, "duration": 1800},
 }
 
 _lock = threading.Lock()
@@ -210,8 +210,9 @@ def start(name: str):
     # CLUSTER MODE LOGIC
     if CLUSTER_MODE and cluster_manager:
         target_replicas = 1  # Default
-        if name == "stress": target_replicas = 5
-        if name == "spike": target_replicas = 10
+        if name == "stress": target_replicas = 10
+        if name == "spike": target_replicas = 20
+        if name == "endurance": target_replicas = 5
         
         success = cluster_manager.scale_workers(target_replicas)
         if success:
@@ -220,6 +221,24 @@ def start(name: str):
                 _current["scenario"] = name
                 _current["rate"] = f"Cluster Scale: {target_replicas} workers"
                 _current["started_at"] = datetime.utcnow().isoformat() + "Z"
+             
+             # Monitor Thread for Cluster Mode Duration
+             def _monitor_cluster_scenario(duration):
+                global _running
+                logger.info(f"Monitor: Waiting for {duration}s or stop event...")
+                if not _stop_event.wait(duration):
+                    # Timeout reached -> Scale Down
+                    logger.info("Monitor: Duration expired. Auto-scaling to 0.")
+                    cluster_manager.scale_workers(0)
+                    with _lock:
+                        _running = False
+                        _current["scenario"] = None
+                else:
+                    logger.info("Monitor: Stopped manually.")
+
+             _stop_event.clear()
+             threading.Thread(target=_monitor_cluster_scenario, args=(SCENARIOS[name]["duration"],), daemon=True).start()
+
              return JSONResponse({"ok": True, "scenario": name, "mode": "cluster", "replicas": target_replicas})
         else:
              return JSONResponse({"error": "Failed to scale cluster"}, status_code=500)
@@ -279,7 +298,12 @@ def startup_event():
 
 @app.post("/stop")
 def stop():
+    if CLUSTER_MODE and cluster_manager:
+        logger.info("Stop requested. Scaling workers to 0...")
+        cluster_manager.scale_workers(0)
+
     if not _running:
-        return JSONResponse({"ok": True, "message": "No scenario running"})
+        return JSONResponse({"ok": True, "message": "No scenario running (Workers scaled down)"})
+    
     _stop_event.set()
     return JSONResponse({"ok": True})
