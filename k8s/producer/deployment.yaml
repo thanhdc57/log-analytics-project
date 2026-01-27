@@ -19,7 +19,7 @@ spec:
       containers:
         - name: log-web-manager
           image: log-web:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           ports:
             - containerPort: 8088
               name: http
@@ -72,7 +72,7 @@ spec:
       containers:
         - name: log-web-worker
           image: log-web:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           env:
             - name: AUTO_START
               value: "true"
