@@ -100,15 +100,14 @@ def calculate_metrics(parsed_df):
 
 def push_log_counts(batch_df, batch_id):
     """Push log counts to Prometheus"""
-    from prometheus_client import CollectorRegistry, Counter, push_to_gateway
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
     registry = CollectorRegistry()
-    # Use Counter for proper rate calculation (auto-zero when idle)
-    c = Counter('spark_processed_logs_total', 'Total processed logs by service and level', 
+    g = Gauge('spark_log_count', 'Log count by service and level', 
               ['service', 'level'], registry=registry)
     
     rows = batch_df.collect()
     for row in rows:
-        c.labels(service=row.service, level=row.level).inc(row.log_count)
+        g.labels(service=row.service, level=row.level).set(row.log_count)
     
     try:
         push_to_gateway(PUSHGATEWAY_URL, job='spark_counts', registry=registry)
@@ -165,8 +164,11 @@ def main():
         print("Streaming queries started. Waiting for data...")
         spark.streams.awaitAnyTermination()
         
-    finally:
-        print("Stopping Spark Streaming...")
+    except Exception as e:
+        print(f"CRITICAL ERROR MAIN: {e}")
+        import traceback
+        traceback.print_exc()
+        raise
 
 if __name__ == "__main__":
     main()
