@@ -35,7 +35,7 @@ spec:
         - name: SPARK_WORKER_CORES
           value: "2"
         - name: SPARK_WORKER_MEMORY
-          value: "3g"
+          value: "2g"
         - name: SPARK_MASTER_URL
           value: "spark://spark-master:7077"
         - name: KAFKA_BOOTSTRAP_SERVERS
@@ -47,10 +47,10 @@ spec:
         resources:
           requests:
             cpu: 1000m
-            memory: 3Gi
+            memory: 2Gi
           limits:
             cpu: 2000m
-            memory: 4Gi
+            memory: 2Gi
         volumeMounts:
         - name: spark-checkpoint-vol
           mountPath: /tmp/spark-checkpoints

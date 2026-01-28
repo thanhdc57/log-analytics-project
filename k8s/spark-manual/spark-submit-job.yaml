@@ -41,7 +41,7 @@ spec:
         - --conf
         - spark.driver.memory=4g
         - --conf
-        - spark.executor.memory=2g
+        - spark.executor.memory=1g
         - --conf
         - spark.executor.cores=2
         - --packages
