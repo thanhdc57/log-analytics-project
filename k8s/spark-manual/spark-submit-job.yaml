@@ -22,11 +22,13 @@ spec:
         command:
         - /opt/spark/bin/spark-submit
         - --master
-        - local[*]
+        - spark://spark-master:7077
         - --deploy-mode
         - client
         - --conf
         - spark.jars.ivy=/tmp/.ivy2
+        - --conf
+        - spark.driver.host=$(POD_IP)
         - --conf
         - spark.driver.bindAddress=$(POD_IP)
         - --conf
@@ -53,7 +55,7 @@ spec:
         - name: PUSHGATEWAY_URL
           value: "http://pushgateway:9091"
         - name: CHECKPOINT_LOCATION
-          value: "/tmp/spark-checkpoints/log-analytics-final-v5"
+          value: "/tmp/spark-checkpoints/log-analytics-final-v6"
         - name: HOME
           value: "/tmp"
       restartPolicy: Always
