@@ -70,17 +70,7 @@ spec:
           mountPath: /tmp/spark-checkpoints
       volumes:
       - name: spark-checkpoint-vol
-        hostPath:
-          path: /tmp/spark-data-shared
-          type: DirectoryOrCreate
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: app
-                operator: In
-                values:
-                - spark-master
-            topologyKey: "kubernetes.io/hostname"
+        nfs:
+          server: nfs-server.log-analytics.svc.cluster.local
+          path: "/"
       restartPolicy: Always
