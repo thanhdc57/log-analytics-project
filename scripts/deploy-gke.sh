@@ -143,6 +143,8 @@ sed -i "s|log-web:latest|gcr.io/$PROJECT_ID/log-web:latest|g" k8s/producer/deplo
 echo "🚀 Step 8: Deploying Applications..."
 kubectl apply -f k8s/producer/rbac.yaml
 # Restart Log Manager
+kubectl delete hpa log-producer-hpa -n log-analytics --ignore-not-found
+kubectl delete hpa log-web-worker -n log-analytics --ignore-not-found
 kubectl delete -f k8s/producer/deployment.yaml --ignore-not-found
 kubectl apply -f k8s/producer/deployment.yaml
 # kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
