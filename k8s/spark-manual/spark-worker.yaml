@@ -15,9 +15,16 @@ spec:
       labels:
         app: spark-worker
     spec:
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod -R 777 /tmp/spark-checkpoints"]
+        volumeMounts:
+        - name: spark-checkpoint-vol
+          mountPath: /tmp/spark-checkpoints
       containers:
       - name: spark-worker
-        image: spark-streaming:latest
+        image: gcr.io/electric-tesla-482312-f2/spark-streaming:latest
         imagePullPolicy: Always
         command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://spark-master:7077"]
         ports:

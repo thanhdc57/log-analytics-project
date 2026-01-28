@@ -15,6 +15,13 @@ spec:
       labels:
         app: spark-submit
     spec:
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chmod -R 777 /tmp/spark-checkpoints"]
+        volumeMounts:
+        - name: spark-checkpoint-vol
+          mountPath: /tmp/spark-checkpoints
       containers:
       - name: spark-submit
         image: gcr.io/electric-tesla-482312-f2/spark-streaming:latest
