@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: spark-submit
-        image: spark-streaming:latest
+        image: gcr.io/electric-tesla-482312-f2/spark-streaming:latest
         imagePullPolicy: Always
         command:
         - /opt/spark/bin/spark-submit
