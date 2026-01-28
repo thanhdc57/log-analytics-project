@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -7,7 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #ee4d2d; /* Shopee Orange */
+            --primary: #ee4d2d;
+            /* Shopee Orange */
             --primary-hover: #d73211;
             --bg-dark: #121212;
             --bg-card: #1e1e1e;
@@ -27,7 +29,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-image: 
+            background-image:
                 radial-gradient(circle at 10% 20%, rgba(238, 77, 45, 0.1) 0%, transparent 20%),
                 radial-gradient(circle at 90% 80%, rgba(0, 191, 165, 0.05) 0%, transparent 20%);
         }
@@ -81,7 +83,7 @@
             height: 12px;
             border-radius: 50%;
             background-color: var(--text-muted);
-            box-shadow: 0 0 10px rgba(0,0,0,0.5);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
             transition: all 0.3s ease;
         }
 
@@ -97,7 +99,7 @@
 
         .stop-btn {
             background-color: #2d2d2d;
-            border: 1px solid rgba(255,50,50,0.3);
+            border: 1px solid rgba(255, 50, 50, 0.3);
             color: var(--error);
             padding: 10px 24px;
             border-radius: 8px;
@@ -194,7 +196,7 @@
             border-color: var(--success);
             box-shadow: 0 0 20px rgba(0, 191, 165, 0.1);
         }
-        
+
         .card.active .start-btn {
             background: #2d2d2d;
             color: var(--success);
@@ -203,17 +205,28 @@
         }
 
         @keyframes pulse {
-            0% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.2); opacity: 0.8; }
-            100% { transform: scale(1); opacity: 1; }
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.8;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
         }
 
         .pulse {
             animation: pulse 2s infinite;
         }
-
     </style>
 </head>
+
 <body>
     <div class="container">
         <header>
@@ -226,6 +239,21 @@
                 <div class="status-dot" id="statusDot"></div>
                 <div class="status-text" id="statusText">System Idle</div>
             </div>
+
+            <!-- Worker Config Section -->
+            <div
+                style="display: flex; gap: 10px; align-items: center; border-left: 1px solid #444; padding-left: 20px; margin-left: 20px;">
+                <span style="color: #aaa; font-size: 0.9rem;">Worker Capacity:</span>
+                <input type="number" id="workerRate" value="1000"
+                    style="width: 70px; padding: 8px; border-radius: 6px; border: 1px solid #555; background: #222; color: white;">
+                <button class="stop-btn"
+                    style="background: #007bff; color: white; border-color: #007bff; padding: 8px 16px; font-size: 0.8rem;"
+                    onclick="updateWorkerRate()">
+                    APPLY
+                </button>
+            </div>
+
+            <div style="flex: 1;"></div>
             <button class="stop-btn" onclick="stopScenario()">STOP ALL</button>
         </div>
 
@@ -235,7 +263,8 @@
                 <h3>{{ name }}</h3>
                 <div class="metric">
                     <span>Target Rate</span>
-                    <span class="value">{{ "{:,}".format(cfg.rate) }} logs/s</span>
+                    <input type="number" id="rate-{{ name }}" value="{{ cfg.rate }}"
+                        style="width: 80px; background: #333; border: 1px solid #555; color: white; padding: 2px 5px; border-radius: 4px;">
                 </div>
                 <div class="metric">
                     <span>Duration</span>
@@ -255,13 +284,34 @@
     </div>
 
     <script>
+        async function updateWorkerRate() {
+            const rate = document.getElementById('workerRate').value;
+            if (!confirm(`Update Per-Worker Rate to ${rate} logs/s?\n(This will restart all workers)`)) return;
+
+            const btn = document.querySelector('button[onclick="updateWorkerRate()"]');
+            btn.innerText = "UPDATING...";
+
+            try {
+                const res = await fetch(`/config/worker-rate?rate=${rate}`, { method: 'POST' });
+                if (res.ok) alert("Configuration updated! Workers are restarting...");
+                else alert("Update failed");
+            } catch (e) {
+                alert("Connection error");
+            } finally {
+                btn.innerText = "APPLY";
+            }
+        }
+
         async function startScenario(name) {
             const btn = document.querySelector(`#card-${name} .start-btn`);
+            const input = document.querySelector(`#rate-${name}`);
+            const rate = input.value;
+
             const originalText = btn.innerText;
             btn.innerText = "Launching...";
-            
+
             try {
-                const res = await fetch(`/start/${name}`, { method: 'POST' });
+                const res = await fetch(`/start/${name}?rate=${rate}`, { method: 'POST' });
                 const data = await res.json();
                 if (data.error) alert(data.error);
             } catch (e) {
@@ -274,19 +324,36 @@
 
         async function stopScenario() {
             const btn = document.querySelector('.stop-btn');
+            const originalText = btn.innerText;
             btn.innerText = "STOPPING...";
-            await fetch('/stop', { method: 'POST' });
-            setTimeout(() => {
-                btn.innerText = "STOP ALL";
-                refreshStatus();
-            }, 1000);
+            btn.disabled = true;
+
+            try {
+                await fetch('/stop', { method: 'POST' });
+            } finally {
+                // Force UI update immediately
+                setTimeout(() => {
+                    btn.innerText = "STOP ALL";
+                    btn.disabled = false;
+
+                    // Manually reset UI to Idle state
+                    document.getElementById('statusDot').classList.remove('active', 'pulse');
+                    document.getElementById('statusText').innerText = "System Idle";
+                    document.querySelectorAll('.card').forEach(c => {
+                        c.classList.remove('active');
+                        c.querySelector('.start-btn').innerText = "LAUNCH SCENARIO";
+                    });
+
+                    refreshStatus();
+                }, 500);
+            }
         }
 
         async function refreshStatus() {
             try {
                 const res = await fetch('/status');
                 const data = await res.json();
-                
+
                 const dot = document.getElementById('statusDot');
                 const text = document.getElementById('statusText');
                 const cards = document.querySelectorAll('.card');
@@ -302,7 +369,7 @@
                     dot.classList.add('active');
                     dot.classList.add('pulse');
                     text.innerHTML = `Running: <span style="color:var(--primary)">${data.scenario}</span> • ${data.rate}`;
-                    
+
                     // Highlight active card
                     const activeCard = document.getElementById(`card-${data.scenario}`);
                     if (activeCard) {
@@ -324,4 +391,5 @@
         refreshStatus();
     </script>
 </body>
+
 </html>

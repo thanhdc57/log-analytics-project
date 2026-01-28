@@ -5,6 +5,7 @@ import time
 import random
 import threading
 import logging
+import subprocess
 from datetime import datetime
 from fastapi import FastAPI, Request
 
@@ -203,7 +204,7 @@ class ClusterManager:
 cluster_manager = ClusterManager() if CLUSTER_MODE else None
 
 @app.post("/start/{name}")
-def start(name: str):
+def start(name: str, rate: int = None):
     global _running, _thread
     if name not in SCENARIOS:
         return JSONResponse({"error": "Unknown scenario"}, status_code=400)
@@ -211,7 +212,9 @@ def start(name: str):
     # CLUSTER MODE LOGIC
     if CLUSTER_MODE and cluster_manager:
         baseline_rate = int(os.getenv("BASELINE_RATE", 1000))
-        target_rate = SCENARIOS[name]["rate"]
+        # Use custom rate if provided, otherwise default to scenario rate
+        target_rate = rate if rate is not None else SCENARIOS[name]["rate"]
+        
         # Calculate needed replicas (Round up)
         target_replicas = max(1, int((target_rate + baseline_rate - 1) / baseline_rate))
         
@@ -252,13 +255,15 @@ def start(name: str):
             return JSONResponse({"error": "Scenario already running"}, status_code=400)
         _running = True
         _current["scenario"] = name
-        _current["rate"] = SCENARIOS[name]["rate"]
+        # Use custom rate if provided, otherwise default
+        target_rate = rate if rate is not None else SCENARIOS[name]["rate"]
+        _current["rate"] = target_rate
         _current["started_at"] = datetime.utcnow().isoformat() + "Z"
 
     _stop_event.clear()
     _thread = threading.Thread(
         target=_run_scenario,
-        args=(SCENARIOS[name]["rate"], SCENARIOS[name]["duration"]),
+        args=(target_rate, SCENARIOS[name]["duration"]),
         daemon=True,
     )
     _thread.start()
