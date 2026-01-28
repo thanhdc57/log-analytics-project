@@ -95,7 +95,6 @@ def _run_scenario(rate: int, duration: int):
     global _running
     producer = KafkaProducer(
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS.split(","),
-        value_serializer=lambda v: json.dumps(v).encode("utf-8"),
         acks=1,
         linger_ms=5,
         batch_size=16384,
@@ -113,13 +112,15 @@ def _run_scenario(rate: int, duration: int):
                 req_id += 1
                 log_entry = _make_log(req_id)
                 
+                # OPTIMIZATION: Serialize once
+                payload_bytes = json.dumps(log_entry).encode("utf-8")
+                
                 # Metrics: Size
-                log_json = json.dumps(log_entry)
-                log_size_bytes.observe(len(log_json.encode('utf-8')))
+                log_size_bytes.observe(len(payload_bytes))
 
-                # Send
+                # Send raw bytes
                 send_start = time.time()
-                producer.send(KAFKA_TOPIC, value=log_entry)
+                producer.send(KAFKA_TOPIC, value=payload_bytes)
                 kafka_send_latency.observe(time.time() - send_start)
 
                 # Metrics: Count

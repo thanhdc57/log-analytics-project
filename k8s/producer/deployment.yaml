@@ -73,6 +73,13 @@ spec:
         - name: log-web-worker
           image: log-web:latest
           imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
           env:
             - name: AUTO_START
               value: "true"
