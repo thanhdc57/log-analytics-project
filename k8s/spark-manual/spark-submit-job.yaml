@@ -32,7 +32,6 @@ spec:
         - --conf
         - spark.driver.bindAddress=$(POD_IP)
         - --conf
-        - --conf
         - spark.driver.memory=4g
         - --packages
         - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
