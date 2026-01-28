@@ -627,7 +627,7 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "sum(spark_log_count) by (service) / 60",
+                        "expr": "sum(rate(spark_processed_logs_total[1m])) by (service)",
                         "legendFormat": "{{service}}",
                         "refId": "A"
                     }
@@ -701,12 +701,12 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "spark_latency_ms{percentile=\"p95\"} * on() (sum(spark_log_count) > bool 0)",
+                        "expr": "spark_latency_ms{percentile=\"p95\"} * on() (sum(rate(spark_processed_logs_total[1m])) > bool 0)",
                         "legendFormat": "{{service}} P95",
                         "refId": "A"
                     },
                     {
-                        "expr": "spark_latency_ms{percentile=\"p99\"} * on() (sum(spark_log_count) > bool 0)",
+                        "expr": "spark_latency_ms{percentile=\"p99\"} * on() (sum(rate(spark_processed_logs_total[1m])) > bool 0)",
                         "legendFormat": "{{service}} P99",
                         "refId": "B"
                     }

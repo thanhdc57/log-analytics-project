@@ -100,14 +100,15 @@ def calculate_metrics(parsed_df):
 
 def push_log_counts(batch_df, batch_id):
     """Push log counts to Prometheus"""
-    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+    from prometheus_client import CollectorRegistry, Counter, push_to_gateway
     registry = CollectorRegistry()
-    g = Gauge('spark_log_count', 'Log count by service and level', 
+    # Use Counter for proper rate calculation (auto-zero when idle)
+    c = Counter('spark_processed_logs_total', 'Total processed logs by service and level', 
               ['service', 'level'], registry=registry)
     
     rows = batch_df.collect()
     for row in rows:
-        g.labels(service=row.service, level=row.level).set(row.log_count)
+        c.labels(service=row.service, level=row.level).inc(row.log_count)
     
     try:
         push_to_gateway(PUSHGATEWAY_URL, job='spark_counts', registry=registry)
