@@ -72,5 +72,5 @@ spec:
       - name: spark-checkpoint-vol
         nfs:
           server: nfs-server.log-analytics.svc.cluster.local
-          path: "/exports"
+          path: "/"
       restartPolicy: Always
