@@ -58,4 +58,22 @@ spec:
           value: "/tmp/spark-checkpoints/log-analytics-final-v6"
         - name: HOME
           value: "/tmp"
+        volumeMounts:
+        - name: spark-checkpoint-vol
+          mountPath: /tmp/spark-checkpoints
+      volumes:
+      - name: spark-checkpoint-vol
+        hostPath:
+          path: /tmp/spark-data-shared
+          type: DirectoryOrCreate
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - spark-master
+            topologyKey: "kubernetes.io/hostname"
       restartPolicy: Always

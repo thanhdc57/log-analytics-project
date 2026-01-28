@@ -44,3 +44,21 @@ spec:
           limits:
             cpu: 2000m
             memory: 6Gi
+        volumeMounts:
+        - name: spark-checkpoint-vol
+          mountPath: /tmp/spark-checkpoints
+      volumes:
+      - name: spark-checkpoint-vol
+        hostPath:
+          path: /tmp/spark-data-shared
+          type: DirectoryOrCreate
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - spark-master
+            topologyKey: "kubernetes.io/hostname"
