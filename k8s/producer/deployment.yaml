@@ -83,6 +83,8 @@ spec:
           env:
             - name: AUTO_START
               value: "true"
+            - name: BASELINE_RATE
+              value: "200"
             - name: KAFKA_BOOTSTRAP_SERVERS
               value: "log-analytics-kafka-kafka-bootstrap:9092"
             - name: KAFKA_TOPIC

@@ -59,10 +59,10 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": 1000, "duration": 86400},
-    "stress": {"rate": 10000, "duration": 600},       # 10 workers
-    "spike": {"rate": 20000, "duration": 180},         # 20 workers
-    "endurance": {"rate": 5000, "duration": 1800},     # 5  workers
+    "baseline": {"rate": int(os.getenv("BASELINE_RATE", 1000)), "duration": 86400},
+    "stress": {"rate": 1200, "duration": 600},         # Target: ~10 workers
+    "spike": {"rate": 1500, "duration": 180},          # Target: Max/Overload
+    "endurance": {"rate": 800, "duration": 1800},      # Target: ~7-8 workers
 }
 
 _lock = threading.Lock()
