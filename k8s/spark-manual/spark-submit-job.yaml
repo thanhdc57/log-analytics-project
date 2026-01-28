@@ -32,19 +32,18 @@ spec:
         - --conf
         - spark.driver.bindAddress=$(POD_IP)
         - --conf
-        - spark.driver.memory=1g
         - --conf
-        - spark.sql.streaming.maxOffsetsPerTrigger=50000
+        - spark.driver.memory=4g
         - --packages
         - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
         - /opt/spark-apps/streaming/spark_streaming.py
         resources:
           requests:
-            cpu: "500m"
-            memory: "1Gi"
-          limits:
             cpu: "1000m"
-            memory: "2Gi"
+            memory: "4Gi"
+          limits:
+            cpu: "2000m"
+            memory: "6Gi"
         env:
         - name: POD_IP
           valueFrom:
@@ -57,7 +56,7 @@ spec:
         - name: PUSHGATEWAY_URL
           value: "http://pushgateway:9091"
         - name: CHECKPOINT_LOCATION
-          value: "/tmp/spark-checkpoints/log-analytics-final-v2"
+          value: "/tmp/spark-checkpoints/log-analytics-final-v4"
         - name: HOME
           value: "/tmp"
       restartPolicy: Always

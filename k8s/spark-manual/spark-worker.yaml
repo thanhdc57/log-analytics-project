@@ -26,9 +26,9 @@ spec:
         - name: SPARK_MODE
           value: worker
         - name: SPARK_WORKER_CORES
-          value: "1"
+          value: "2"
         - name: SPARK_WORKER_MEMORY
-          value: "1g"
+          value: "4g"
         - name: SPARK_MASTER_URL
           value: "spark://spark-master:7077"
         - name: KAFKA_BOOTSTRAP_SERVERS
@@ -39,8 +39,8 @@ spec:
           value: "http://pushgateway:9091"
         resources:
           requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
             cpu: 1000m
-            memory: 1.5Gi
+            memory: 4Gi
+          limits:
+            cpu: 2000m
+            memory: 6Gi
