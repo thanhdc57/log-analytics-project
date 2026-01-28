@@ -664,7 +664,7 @@ data:
                             "stacking": {
                                 "group": "A",
                                 "mode": "none"
-                            },
+                            }
                         },
                         "mappings": [],
                         "thresholds": {
