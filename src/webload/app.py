@@ -210,10 +210,12 @@ def start(name: str):
 
     # CLUSTER MODE LOGIC
     if CLUSTER_MODE and cluster_manager:
-        target_replicas = 1  # Default
-        if name == "stress": target_replicas = 10
-        if name == "spike": target_replicas = 20
-        if name == "endurance": target_replicas = 5
+        baseline_rate = int(os.getenv("BASELINE_RATE", 1000))
+        target_rate = SCENARIOS[name]["rate"]
+        # Calculate needed replicas (Round up)
+        target_replicas = max(1, int((target_rate + baseline_rate - 1) / baseline_rate))
+        
+        logger.info(f"Scenario: {name} (Rate: {target_rate}), Per-Pod: {baseline_rate} -> Scaling to {target_replicas} replicas")
         
         success = cluster_manager.scale_workers(target_replicas)
         if success:
