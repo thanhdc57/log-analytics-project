@@ -105,6 +105,9 @@ data:
         type: file
         options:
           path: /var/lib/grafana/dashboards
+          foldersFromFilesStructure: true
+          allowUiUpdates: true
+          updateIntervalSeconds: 10
 ---
 apiVersion: v1
 kind: ConfigMap
