@@ -26,6 +26,8 @@ spec:
         - --deploy-mode
         - client
         - --conf
+        - spark.jars.ivy=/tmp/.ivy2
+        - --conf
         - spark.driver.bindAddress=$(POD_IP)
         - --conf
         - spark.driver.memory=4g
