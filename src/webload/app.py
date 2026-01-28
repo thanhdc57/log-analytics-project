@@ -59,9 +59,9 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": int(os.getenv("BASELINE_RATE", 1000)), "duration": 86400},
+    "baseline": {"rate": int(os.getenv("BASELINE_RATE", 200)), "duration": 86400},
     "stress": {"rate": 1200, "duration": 600},         # Target: ~10 workers
-    "spike": {"rate": 1500, "duration": 180},          # Target: Max/Overload
+    "spike": {"rate": 2000, "duration": 180},          # Target: Max/Overload
     "endurance": {"rate": 800, "duration": 1800},      # Target: ~7-8 workers
 }
 

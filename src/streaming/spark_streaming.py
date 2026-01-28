@@ -229,8 +229,8 @@ def main():
             .queryName("push_latency") \
             .start()
         
-        # Debug Console
-        q_console = write_to_console(metrics_1m, "debug_console")
+        # Debug Console (DISABLED for Performance)
+        # q_console = write_to_console(metrics_1m, "debug_console")
         
         print("Streaming queries started. Waiting for data...")
         spark.streams.awaitAnyTermination()
