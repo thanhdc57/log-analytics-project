@@ -27,7 +27,10 @@ spec:
     spec:
       containers:
       - name: nfs-server
-        image: registry.k8s.io/volume-nfs:0.8
+        image: itsthenetwork/nfs-server-alpine:latest
+        env:
+        - name: SHARED_DIRECTORY
+          value: "/exports"
         ports:
         - name: nfs
           containerPort: 2049
