@@ -201,7 +201,33 @@ class ClusterManager:
             logger.error(f"ClusterManager: Scaling failed: {e}")
             return False
 
+    def update_worker_rate(self, new_rate: int):
+        if not self.enabled:
+            return False
+        try:
+            logger.info(f"Updating BASELINE_RATE to {new_rate}...")
+            subprocess.check_call([
+                "kubectl", "set", "env", "deployment/log-web-worker",
+                f"BASELINE_RATE={new_rate}", "-n", self.namespace
+            ])
+            return True
+        except subprocess.CalledProcessError as e:
+            logger.error(f"Failed to update worker rate: {e}")
+            return False
+
 cluster_manager = ClusterManager() if CLUSTER_MODE else None
+
+@app.post("/config/worker-rate")
+def config_worker_rate(rate: int):
+    if CLUSTER_MODE and cluster_manager:
+        success = cluster_manager.update_worker_rate(rate)
+        if success:
+            return JSONResponse({"status": "updated", "rate": rate})
+        return JSONResponse({"error": "Failed to update k8s"}, status_code=500)
+    else:
+        # Local mode (Experimental)
+        os.environ["BASELINE_RATE"] = str(rate)
+        return JSONResponse({"status": "local_updated", "rate": rate})
 
 @app.post("/start/{name}")
 def start(name: str, rate: int = None):
