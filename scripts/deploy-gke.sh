@@ -117,6 +117,14 @@ echo "   🚀 Applying Spark Master & Worker..."
 kubectl delete -f k8s/spark-manual/spark-master.yaml --ignore-not-found
 kubectl delete -f k8s/spark-manual/spark-worker.yaml --ignore-not-found
 kubectl delete -f k8s/spark-manual/spark-worker-hpa.yaml --ignore-not-found
+# Clean up NFS as well to ensure fresh start
+kubectl delete -f k8s/spark-manual/nfs-server.yaml --ignore-not-found
+
+# Deploy NFS First
+echo "   📦 Deploying NFS Server..."
+kubectl apply -f k8s/spark-manual/nfs-server.yaml
+echo "   ⏳ Waiting for NFS Server..."
+kubectl wait deployment/nfs-server --for=condition=Available --timeout=300s -n log-analytics
 
 kubectl apply -f k8s/spark-manual/spark-master.yaml
 kubectl apply -f k8s/spark-manual/spark-worker.yaml
