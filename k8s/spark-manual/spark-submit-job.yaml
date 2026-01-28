@@ -40,6 +40,10 @@ spec:
         - spark.driver.bindAddress=$(POD_IP)
         - --conf
         - spark.driver.memory=4g
+        - --conf
+        - spark.executor.memory=3g
+        - --conf
+        - spark.executor.cores=2
         - --packages
         - org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0
         - /opt/spark-apps/streaming/spark_streaming.py
