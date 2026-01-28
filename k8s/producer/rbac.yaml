@@ -1,29 +1,23 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: log-web-manager
-  namespace: log-analytics
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: deployment-scaler
   namespace: log-analytics
+  name: log-manager-role
 rules:
-  - apiGroups: ["apps"]
-    resources: ["deployments", "deployments/scale"]
-    verbs: ["get", "patch", "update"]
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "watch", "patch", "update"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: log-web-manager-scaler
+  name: log-manager-binding
   namespace: log-analytics
 subjects:
-  - kind: ServiceAccount
-    name: log-web-manager
-    namespace: log-analytics
+- kind: ServiceAccount
+  name: log-web-manager
+  namespace: log-analytics
 roleRef:
   kind: Role
-  name: deployment-scaler
+  name: log-manager-role
   apiGroup: rbac.authorization.k8s.io
