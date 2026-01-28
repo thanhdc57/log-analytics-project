@@ -627,8 +627,8 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "spark_log_count",
-                        "legendFormat": "{{service}} - {{level}}",
+                        "expr": "sum(rate(spark_processed_logs_total[1m])) by (service)",
+                        "legendFormat": "{{service}}",
                         "refId": "A"
                     }
                 ],
@@ -662,9 +662,6 @@ data:
                                 "group": "A",
                                 "mode": "none"
                             },
-                            "thresholdsStyle": {
-                                "mode": "off"
-                            }
                         },
                         "mappings": [],
                         "thresholds": {
@@ -704,12 +701,12 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "spark_latency_ms{percentile=\"p95\"}",
+                        "expr": "spark_latency_ms{percentile=\"p95\"} * on() (sum(rate(spark_processed_logs_total[1m])) > bool 0)",
                         "legendFormat": "{{service}} P95",
                         "refId": "A"
                     },
                     {
-                        "expr": "spark_latency_ms{percentile=\"p99\"}",
+                        "expr": "spark_latency_ms{percentile=\"p99\"} * on() (sum(rate(spark_processed_logs_total[1m])) > bool 0)",
                         "legendFormat": "{{service}} P99",
                         "refId": "B"
                     }

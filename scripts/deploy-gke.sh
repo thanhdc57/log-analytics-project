@@ -134,10 +134,11 @@ kubectl delete -f k8s/producer/deployment.yaml --ignore-not-found
 kubectl apply -f k8s/producer/deployment.yaml
 # kubectl apply -f k8s/hpa/log-producer-hpa.yaml (Disabled: Managed by Web UI)
 
-# Deploy Spark Submit Job
-echo "   🚀 Submitting Spark Job (Manual)..."
-# Delete old job to force re-run
+# Step 9: Deploy Spark Submit (Driver as Deployment Service)
+echo "   🚀 Deploying Spark Submit Driver (Continuous Service)..."
+# Delete old resources (both Job and Deployment) to ensure clean restart and image pull
 kubectl delete job spark-submit -n log-analytics --ignore-not-found
+kubectl delete deployment spark-submit -n log-analytics --ignore-not-found
 kubectl apply -f k8s/spark-manual/spark-submit-job.yaml
 
 

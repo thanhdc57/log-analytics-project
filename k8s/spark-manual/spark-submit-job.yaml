@@ -1,9 +1,15 @@
-apiVersion: batch/v1
-kind: Job
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: spark-submit
   namespace: log-analytics
+  labels:
+    app: spark-submit
 spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-submit
   template:
     metadata:
       labels:
@@ -40,8 +46,7 @@ spec:
         - name: PUSHGATEWAY_URL
           value: "http://pushgateway:9091"
         - name: CHECKPOINT_LOCATION
-          value: "/tmp/spark-checkpoints/log-analytics"
+          value: "/tmp/spark-checkpoints/log-analytics-uniq"
         - name: HOME
           value: "/tmp"
-      restartPolicy: OnFailure
-  backoffLimit: 4
+      restartPolicy: Always
