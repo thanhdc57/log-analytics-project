@@ -95,7 +95,47 @@ def calculate_metrics(parsed_df):
     return metrics_1m
 
 
-# ... (Calculate error_rate and latency functions remain unchanged)
+
+def calculate_error_rate(parsed_df):
+    """Calculate error rate per service in 5-minute windows"""
+    return parsed_df \
+        .withWatermark("kafka_timestamp", "5 minutes") \
+        .groupBy(
+            window(col("kafka_timestamp"), "5 minutes"),
+            col("service")
+        ) \
+        .agg(
+            count("*").alias("total_logs"),
+            count(when(col("level") == "ERROR", 1)).alias("error_logs")
+        ) \
+        .withColumn("error_rate", 
+                    (col("error_logs") / col("total_logs") * 100).cast("double"))
+
+
+def calculate_latency_percentiles(parsed_df):
+    """Calculate response time percentiles per service"""
+    return parsed_df \
+        .withWatermark("kafka_timestamp", "5 minutes") \
+        .groupBy(
+            window(col("kafka_timestamp"), "5 minutes"),
+            col("service")
+        ) \
+        .agg(
+            expr("percentile_approx(response_time_ms, 0.5)").alias("p50_latency"),
+            expr("percentile_approx(response_time_ms, 0.95)").alias("p95_latency"),
+            expr("percentile_approx(response_time_ms, 0.99)").alias("p99_latency"),
+            avg("response_time_ms").alias("avg_latency")
+        )
+
+
+def write_to_console(df, query_name):
+    """Write stream to console for debugging"""
+    return df.writeStream \
+        .outputMode("update") \
+        .format("console") \
+        .option("truncate", "false") \
+        .queryName(query_name) \
+        .start()
 
 
 def push_log_counts(batch_df, batch_id):
@@ -115,7 +155,37 @@ def push_log_counts(batch_df, batch_id):
     except Exception as e:
         print(f"Failed to push counts: {e}")
 
-# ... (Other push functions remain unchanged)
+def push_error_rates(batch_df, batch_id):
+    """Push error rates to Prometheus"""
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+    registry = CollectorRegistry()
+    g = Gauge('spark_error_rate', 'Error rate by service', ['service'], registry=registry)
+    
+    rows = batch_df.collect()
+    for row in rows:
+        g.labels(service=row.service).set(row.error_rate)
+        
+    try:
+        push_to_gateway(PUSHGATEWAY_URL, job='spark_errors', registry=registry)
+    except Exception as e:
+        print(f"Failed to push errors: {e}")
+
+def push_latency(batch_df, batch_id):
+    """Push latency metrics to Prometheus"""
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
+    registry = CollectorRegistry()
+    g = Gauge('spark_latency_ms', 'Response latency', ['service', 'percentile'], registry=registry)
+    
+    rows = batch_df.collect()
+    for row in rows:
+        g.labels(service=row.service, percentile='p50').set(row.p50_latency or 0)
+        g.labels(service=row.service, percentile='p95').set(row.p95_latency or 0)
+        g.labels(service=row.service, percentile='p99').set(row.p99_latency or 0)
+        
+    try:
+        push_to_gateway(PUSHGATEWAY_URL, job='spark_latency', registry=registry)
+    except Exception as e:
+        print(f"Failed to push latency: {e}")
 
 def main():
     print("Starting Spark Streaming Log Analytics...")
