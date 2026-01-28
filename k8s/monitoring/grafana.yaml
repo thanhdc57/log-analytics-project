@@ -101,7 +101,7 @@ data:
     apiVersion: 1
     providers:
       - name: 'Log Analytics'
-        folder: ''
+        folder: 'General'
         type: file
         options:
           path: /var/lib/grafana/dashboards
