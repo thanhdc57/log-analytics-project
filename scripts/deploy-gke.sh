@@ -74,10 +74,14 @@ kubectl wait pod/kafka-0 --for=condition=Ready --timeout=300s -n log-analytics
 kubectl wait pod/kafka-1 --for=condition=Ready --timeout=300s -n log-analytics
 kubectl wait pod/kafka-2 --for=condition=Ready --timeout=300s -n log-analytics
 
+# Give DNS time to propagate (Critical for Headless Services)
+echo "   ⏳ Waiting 30s for DNS propagation..."
+sleep 30
+
 # Explicitly create topic to prevent Spark UnknownTopicOrPartitionException
 echo "   ✨ Ensuring 'application-logs' topic exists..."
 kubectl run -n log-analytics kafka-init-topic --image=confluentinc/cp-kafka:7.5.0 --restart=Never --rm --attach -- \
-    kafka-topics --create --topic application-logs --bootstrap-server log-analytics-kafka-kafka-bootstrap.log-analytics.svc:9092 --partitions 3 --replication-factor 2 --if-not-exists
+    kafka-topics --create --topic application-logs --bootstrap-server log-analytics-kafka-kafka-bootstrap.log-analytics.svc.cluster.local:9092 --partitions 3 --replication-factor 2 --if-not-exists
 kubectl delete pod kafka-init-topic -n log-analytics --ignore-not-found
 # Wait for Kafka
 # echo "⏳ Waiting for Kafka cluster (this may take 5-10 minutes)..."
