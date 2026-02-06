@@ -1,15 +1,11 @@
-"""
-Spark Structured Streaming - Real-time Log Analytics
-Consumes logs from Kafka, processes them, and pushes metrics to Prometheus
-"""
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     from_json, col, window, count, avg, 
-    when, lit, current_timestamp, expr
+    when, expr, current_timestamp
 )
 from pyspark.sql.types import (
     StructType, StructField, StringType, 
-    IntegerType, TimestampType
+    IntegerType
 )
 import os
 
@@ -19,7 +15,10 @@ KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'application-logs')
 CHECKPOINT_LOCATION = os.getenv('CHECKPOINT_LOCATION', '/tmp/spark-checkpoints/log-analytics')
 PUSHGATEWAY_URL = os.getenv('PUSHGATEWAY_URL', 'http://pushgateway:9091')
 
-# Log schema matching the producer output
+# OPTIMIZATION: Process every 10 seconds instead of continuously
+TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '10 seconds')
+
+# Log schema
 LOG_SCHEMA = StructType([
     StructField("timestamp", StringType(), True),
     StructField("level", StringType(), True),
@@ -38,13 +37,14 @@ LOG_SCHEMA = StructType([
 
 
 def create_spark_session():
-    """Create Spark session with Kafka support"""
+    """Create Spark session with optimized settings"""
     return SparkSession.builder \
         .appName("LogAnalyticsStreaming") \
         .config("spark.sql.streaming.checkpointLocation", CHECKPOINT_LOCATION) \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.streaming.backpressure.enabled", "true") \
+        .config("spark.sql.shuffle.partitions", "4") \
         .getOrCreate()
 
 
@@ -56,187 +56,116 @@ def read_from_kafka(spark):
         .option("subscribe", KAFKA_TOPIC) \
         .option("startingOffsets", "latest") \
         .option("failOnDataLoss", "false") \
+        .option("maxOffsetsPerTrigger", "10000") \
         .load()
 
 
-
 def parse_logs(kafka_df):
-    """Parse JSON logs from Kafka messages and simulate load"""
-    parsed = kafka_df \
+    """Parse JSON logs from Kafka messages"""
+    return kafka_df \
         .selectExpr("CAST(value AS STRING) as json_str", "timestamp as kafka_timestamp") \
         .select(
             from_json(col("json_str"), LOG_SCHEMA).alias("log"),
             col("kafka_timestamp")
         ) \
         .select("log.*", "kafka_timestamp")
+
+
+def push_all_metrics(batch_df, batch_id):
+    """
+    OPTIMIZED: Push ALL metrics in ONE function call
+    Combines: log counts, error rates, and latency percentiles
+    """
+    from prometheus_client import CollectorRegistry, Counter, Gauge, push_to_gateway
     
-    # No simulation - Processing at max speed
-    return parsed
-
-
-def calculate_metrics(parsed_df):
-    """Calculate real-time metrics with windowing"""
+    if batch_df.isEmpty():
+        return
     
-    # 1-minute window aggregations
-    metrics_1m = parsed_df \
-        .withWatermark("kafka_timestamp", "1 minute") \
-        .groupBy(
-            window(col("kafka_timestamp"), "1 minute"),
-            col("service"),
-            col("level")
-        ) \
-        .agg(
-            count("*").alias("log_count"),
-            avg("response_time_ms").alias("avg_response_time"),
-            count(when(col("http_status") >= 500, 1)).alias("error_count"),
-            count(when(col("http_status") >= 400, 1)).alias("client_error_count")
-        )
-    
-    return metrics_1m
-
-
-
-def calculate_error_rate(parsed_df):
-    """Calculate error rate per service in 5-minute windows"""
-    return parsed_df \
-        .withWatermark("kafka_timestamp", "5 minutes") \
-        .groupBy(
-            window(col("kafka_timestamp"), "5 minutes"),
-            col("service")
-        ) \
-        .agg(
-            count("*").alias("total_logs"),
-            count(when(col("level") == "ERROR", 1)).alias("error_logs")
-        ) \
-        .withColumn("error_rate", 
-                    (col("error_logs") / col("total_logs") * 100).cast("double"))
-
-
-def calculate_latency_percentiles(parsed_df):
-    """Calculate response time percentiles per service"""
-    return parsed_df \
-        .withWatermark("kafka_timestamp", "5 minutes") \
-        .groupBy(
-            window(col("kafka_timestamp"), "5 minutes"),
-            col("service")
-        ) \
-        .agg(
-            expr("percentile_approx(response_time_ms, 0.5)").alias("p50_latency"),
-            expr("percentile_approx(response_time_ms, 0.95)").alias("p95_latency"),
-            expr("percentile_approx(response_time_ms, 0.99)").alias("p99_latency"),
-            avg("response_time_ms").alias("avg_latency")
-        )
-
-
-def write_to_console(df, query_name):
-    """Write stream to console for debugging"""
-    return df.writeStream \
-        .outputMode("update") \
-        .format("console") \
-        .option("truncate", "false") \
-        .queryName(query_name) \
-        .start()
-
-
-def push_log_counts(batch_df, batch_id):
-    """Push log counts to Prometheus"""
-    from prometheus_client import CollectorRegistry, Counter, push_to_gateway
     registry = CollectorRegistry()
-    # Use Counter for proper rate calculation (auto-zero when idle)
-    c = Counter('spark_processed_logs_total', 'Total processed logs by service and level', 
-              ['service', 'level'], registry=registry)
     
-    rows = batch_df.collect()
-    for row in rows:
-        c.labels(service=row.service, level=row.level).inc(row.log_count)
+    # Metric definitions
+    log_counter = Counter('spark_processed_logs_total', 
+                         'Total processed logs by service and level', 
+                         ['service', 'level'], registry=registry)
+    error_gauge = Gauge('spark_error_rate', 
+                       'Error rate by service', 
+                       ['service'], registry=registry)
+    latency_gauge = Gauge('spark_latency_ms', 
+                         'Response latency', 
+                         ['service', 'percentile'], registry=registry)
     
-    try:
-        push_to_gateway(PUSHGATEWAY_URL, job='spark_counts', registry=registry)
-    except Exception as e:
-        print(f"Failed to push counts: {e}")
-
-def push_error_rates(batch_df, batch_id):
-    """Push error rates to Prometheus"""
-    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-    registry = CollectorRegistry()
-    g = Gauge('spark_error_rate', 'Error rate by service', ['service'], registry=registry)
+    # Calculate all metrics in one pass using Spark SQL
+    # This avoids multiple collect() calls
+    metrics = batch_df.groupBy("service", "level").agg(
+        count("*").alias("log_count"),
+        avg("response_time_ms").alias("avg_latency"),
+        expr("percentile_approx(response_time_ms, 0.5)").alias("p50"),
+        expr("percentile_approx(response_time_ms, 0.95)").alias("p95"),
+        expr("percentile_approx(response_time_ms, 0.99)").alias("p99"),
+        count(when(col("level") == "ERROR", 1)).alias("error_count"),
+        count("*").alias("total_count")
+    ).collect()
     
-    rows = batch_df.collect()
-    for row in rows:
-        g.labels(service=row.service).set(row.error_rate)
+    # Service-level aggregates for error rate
+    service_totals = {}
+    service_errors = {}
+    
+    for row in metrics:
+        service = row.service
+        level = row.level
         
-    try:
-        push_to_gateway(PUSHGATEWAY_URL, job='spark_errors', registry=registry)
-    except Exception as e:
-        print(f"Failed to push errors: {e}")
-
-def push_latency(batch_df, batch_id):
-    """Push latency metrics to Prometheus"""
-    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-    registry = CollectorRegistry()
-    g = Gauge('spark_latency_ms', 'Response latency', ['service', 'percentile'], registry=registry)
-    
-    rows = batch_df.collect()
-    for row in rows:
-        g.labels(service=row.service, percentile='p50').set(row.p50_latency or 0)
-        g.labels(service=row.service, percentile='p95').set(row.p95_latency or 0)
-        g.labels(service=row.service, percentile='p99').set(row.p99_latency or 0)
+        # Log counts
+        log_counter.labels(service=service, level=level).inc(row.log_count)
         
+        # Accumulate for error rate calculation
+        service_totals[service] = service_totals.get(service, 0) + row.total_count
+        service_errors[service] = service_errors.get(service, 0) + row.error_count
+        
+        # Latency (first row per service wins)
+        if row.p50 is not None:
+            latency_gauge.labels(service=service, percentile='p50').set(row.p50)
+            latency_gauge.labels(service=service, percentile='p95').set(row.p95 or 0)
+            latency_gauge.labels(service=service, percentile='p99').set(row.p99 or 0)
+    
+    # Error rates
+    for service, total in service_totals.items():
+        if total > 0:
+            error_rate = (service_errors.get(service, 0) / total) * 100
+            error_gauge.labels(service=service).set(error_rate)
+    
+    # Single push with all metrics
     try:
-        push_to_gateway(PUSHGATEWAY_URL, job='spark_latency', registry=registry)
+        push_to_gateway(PUSHGATEWAY_URL, job='spark_streaming', registry=registry)
+        print(f"[Batch {batch_id}] Pushed metrics for {len(metrics)} service-level combinations")
     except Exception as e:
-        print(f"Failed to push latency: {e}")
+        print(f"[Batch {batch_id}] Failed to push: {e}")
+
 
 def main():
-    print("Starting Spark Streaming Log Analytics...")
+    print("Starting Optimized Spark Streaming Log Analytics...")
+    print(f"Trigger Interval: {TRIGGER_INTERVAL}")
     
-    # Create Spark session
     spark = create_spark_session()
     spark.sparkContext.setLogLevel("WARN")
     
     try:
-        # Read from Kafka
+        # Read and parse
         kafka_df = read_from_kafka(spark)
-        
-        # Parse logs
         parsed_df = parse_logs(kafka_df)
         
-        # Calculate different metrics
-        metrics_1m = calculate_metrics(parsed_df)
-        error_rates = calculate_error_rate(parsed_df)
-        latency_percentiles = calculate_latency_percentiles(parsed_df)
-        
-        # Start queries
-        
-        # Query 1: Log Counts to Prometheus
-        q1 = metrics_1m.writeStream \
-            .outputMode("update") \
-            .foreachBatch(push_log_counts) \
-            .queryName("push_counts") \
-            .start()
-
-        # Query 2: Error Rates to Prometheus
-        q2 = error_rates.writeStream \
-            .outputMode("update") \
-            .foreachBatch(push_error_rates) \
-            .queryName("push_errors") \
-            .start()
-
-        # Query 3: Latency to Prometheus
-        q3 = latency_percentiles.writeStream \
-            .outputMode("update") \
-            .foreachBatch(push_latency) \
-            .queryName("push_latency") \
+        # OPTIMIZED: Single query with trigger interval
+        query = parsed_df.writeStream \
+            .outputMode("append") \
+            .trigger(processingTime=TRIGGER_INTERVAL) \
+            .foreachBatch(push_all_metrics) \
+            .queryName("unified_metrics") \
             .start()
         
-        # Debug Console (DISABLED for Performance)
-        # q_console = write_to_console(metrics_1m, "debug_console")
-        
-        print("Streaming queries started. Waiting for data...")
-        spark.streams.awaitAnyTermination()
+        print("Streaming query started. Processing logs...")
+        query.awaitTermination()
         
     except Exception as e:
-        print(f"CRITICAL ERROR MAIN: {e}")
+        print(f"CRITICAL ERROR: {e}")
         import traceback
         traceback.print_exc()
         raise
