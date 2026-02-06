@@ -76,17 +76,17 @@ def push_all_metrics(batch_df, batch_id):
     OPTIMIZED: Push ALL metrics in ONE function call
     Combines: log counts, error rates, and latency percentiles
     """
-    from prometheus_client import CollectorRegistry, Counter, Gauge, push_to_gateway
+    from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
     
     if batch_df.isEmpty():
         return
     
     registry = CollectorRegistry()
     
-    # Metric definitions
-    log_counter = Counter('spark_processed_logs_total', 
-                         'Total processed logs by service and level', 
-                         ['service', 'level'], registry=registry)
+    # Metric definitions - Using Gauge since we push fresh values each batch
+    log_gauge = Gauge('spark_logs_per_batch', 
+                      'Logs processed per batch by service and level', 
+                      ['service', 'level'], registry=registry)
     error_gauge = Gauge('spark_error_rate', 
                        'Error rate by service', 
                        ['service'], registry=registry)
@@ -114,8 +114,8 @@ def push_all_metrics(batch_df, batch_id):
         service = row.service
         level = row.level
         
-        # Log counts
-        log_counter.labels(service=service, level=level).inc(row.log_count)
+        # Log counts per batch (Gauge - shows current batch count)
+        log_gauge.labels(service=service, level=level).set(row.log_count)
         
         # Accumulate for error rate calculation
         service_totals[service] = service_totals.get(service, 0) + row.total_count
