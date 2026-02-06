@@ -248,8 +248,7 @@
                 <h3>{{ name }}</h3>
                 <div class="metric">
                     <span>Target Rate</span>
-                    <input type="number" id="rate-{{ name }}" value="{{ cfg.rate }}"
-                        style="width: 80px; background: #333; border: 1px solid #555; color: white; padding: 2px 5px; border-radius: 4px;">
+                    <span class="value" data-rate="{{ cfg.rate }}">{{ "{:,}".format(cfg.rate) }} logs/s</span>
                 </div>
                 <div class="metric">
                     <span>Duration</span>
@@ -271,14 +270,12 @@
     <script>
         async function startScenario(name) {
             const btn = document.querySelector(`#card-${name} .start-btn`);
-            const input = document.querySelector(`#rate-${name}`);
-            const rate = input.value;
 
             const originalText = btn.innerText;
             btn.innerText = "Launching...";
 
             try {
-                const res = await fetch(`/start/${name}?rate=${rate}`, { method: 'POST' });
+                const res = await fetch(`/start/${name}`, { method: 'POST' });
                 const data = await res.json();
                 if (data.error) alert(data.error);
             } catch (e) {
