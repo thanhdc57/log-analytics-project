@@ -60,11 +60,14 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": int(os.getenv("BASELINE_RATE", 200)), "duration": 86400},
-    "stress": {"rate": 1200, "duration": 600},         # Target: ~10 workers
-    "spike": {"rate": 2000, "duration": 180},          # Target: Max/Overload
-    "endurance": {"rate": 800, "duration": 1800},      # Target: ~7-8 workers
+    "baseline": {"rate": 200, "duration": 86400},      # 1 worker @ 200 logs/s
+    "stress": {"rate": 2000, "duration": 600},         # 2 workers @ 1000 logs/s
+    "spike": {"rate": 5000, "duration": 180},          # 5 workers @ 1000 logs/s
+    "endurance": {"rate": 1000, "duration": 1800},     # 1 worker @ 1000 logs/s
 }
+
+# Maximum logs/s a single worker can produce
+MAX_WORKER_RATE = 1000
 
 _lock = threading.Lock()
 _running = False
@@ -201,18 +204,33 @@ class ClusterManager:
             logger.error(f"ClusterManager: Scaling failed: {e}")
             return False
 
-    def update_worker_rate(self, new_rate: int):
+    def update_worker_env(self, rate_per_worker: int):
+        """Update BASELINE_RATE env var on worker deployment using K8s API"""
         if not self.enabled:
             return False
         try:
-            logger.info(f"Updating BASELINE_RATE to {new_rate}...")
-            subprocess.check_call([
-                "kubectl", "set", "env", "deployment/log-web-worker",
-                f"BASELINE_RATE={new_rate}", "-n", self.namespace
-            ])
+            logger.info(f"Updating worker BASELINE_RATE to {rate_per_worker}...")
+            
+            # Get current deployment
+            deployment = self.apps_v1.read_namespaced_deployment(WORKER_DEPLOYMENT, NAMESPACE)
+            
+            # Find and update BASELINE_RATE env var
+            containers = deployment.spec.template.spec.containers
+            for container in containers:
+                if container.env:
+                    for env_var in container.env:
+                        if env_var.name == "BASELINE_RATE":
+                            env_var.value = str(rate_per_worker)
+                            break
+                    else:
+                        # Add if not exists
+                        container.env.append(client.V1EnvVar(name="BASELINE_RATE", value=str(rate_per_worker)))
+            
+            # Patch deployment
+            self.apps_v1.patch_namespaced_deployment(WORKER_DEPLOYMENT, NAMESPACE, deployment)
             return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to update worker rate: {e}")
+        except Exception as e:
+            logger.error(f"Failed to update worker env: {e}")
             return False
 
 cluster_manager = ClusterManager() if CLUSTER_MODE else None
@@ -220,7 +238,7 @@ cluster_manager = ClusterManager() if CLUSTER_MODE else None
 @app.post("/config/worker-rate")
 def config_worker_rate(rate: int):
     if CLUSTER_MODE and cluster_manager:
-        success = cluster_manager.update_worker_rate(rate)
+        success = cluster_manager.update_worker_env(rate)
         if success:
             return JSONResponse({"status": "updated", "rate": rate})
         return JSONResponse({"error": "Failed to update k8s"}, status_code=500)
@@ -237,21 +255,26 @@ def start(name: str, rate: int = None):
 
     # CLUSTER MODE LOGIC
     if CLUSTER_MODE and cluster_manager:
-        baseline_rate = int(os.getenv("BASELINE_RATE", 1000))
         # Use custom rate if provided, otherwise default to scenario rate
         target_rate = rate if rate is not None else SCENARIOS[name]["rate"]
         
-        # Calculate needed replicas (Round up)
-        target_replicas = max(1, int((target_rate + baseline_rate - 1) / baseline_rate))
+        # Smart scaling: calculate workers needed and rate per worker
+        import math
+        workers_needed = max(1, math.ceil(target_rate / MAX_WORKER_RATE))
+        rate_per_worker = target_rate // workers_needed
         
-        logger.info(f"Scenario: {name} (Rate: {target_rate}), Per-Pod: {baseline_rate} -> Scaling to {target_replicas} replicas")
+        logger.info(f"Scenario: {name} | Total: {target_rate} logs/s -> {workers_needed} workers @ {rate_per_worker} logs/s each")
         
-        success = cluster_manager.scale_workers(target_replicas)
+        # Update worker rate BEFORE scaling
+        cluster_manager.update_worker_env(rate_per_worker)
+        
+        # Scale workers
+        success = cluster_manager.scale_workers(workers_needed)
         if success:
              with _lock:
                 _running = True
                 _current["scenario"] = name
-                _current["rate"] = f"Cluster Scale: {target_replicas} workers"
+                _current["rate"] = f"{workers_needed} workers × {rate_per_worker} logs/s = {target_rate} total"
                 _current["started_at"] = datetime.utcnow().isoformat() + "Z"
              
              # Monitor Thread for Cluster Mode Duration
@@ -271,7 +294,7 @@ def start(name: str, rate: int = None):
              _stop_event.clear()
              threading.Thread(target=_monitor_cluster_scenario, args=(SCENARIOS[name]["duration"],), daemon=True).start()
 
-             return JSONResponse({"ok": True, "scenario": name, "mode": "cluster", "replicas": target_replicas})
+             return JSONResponse({"ok": True, "scenario": name, "mode": "cluster", "workers": workers_needed, "rate_per_worker": rate_per_worker})
         else:
              return JSONResponse({"error": "Failed to scale cluster"}, status_code=500)
 

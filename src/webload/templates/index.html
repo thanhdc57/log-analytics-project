@@ -239,21 +239,6 @@
                 <div class="status-dot" id="statusDot"></div>
                 <div class="status-text" id="statusText">System Idle</div>
             </div>
-
-            <!-- Worker Config Section -->
-            <div
-                style="display: flex; gap: 10px; align-items: center; border-left: 1px solid #444; padding-left: 20px; margin-left: 20px;">
-                <span style="color: #aaa; font-size: 0.9rem;">Worker Capacity:</span>
-                <input type="number" id="workerRate" value="1000"
-                    style="width: 70px; padding: 8px; border-radius: 6px; border: 1px solid #555; background: #222; color: white;">
-                <button class="stop-btn"
-                    style="background: #007bff; color: white; border-color: #007bff; padding: 8px 16px; font-size: 0.8rem;"
-                    onclick="updateWorkerRate()">
-                    APPLY
-                </button>
-            </div>
-
-            <div style="flex: 1;"></div>
             <button class="stop-btn" onclick="stopScenario()">STOP ALL</button>
         </div>
 
@@ -284,24 +269,6 @@
     </div>
 
     <script>
-        async function updateWorkerRate() {
-            const rate = document.getElementById('workerRate').value;
-            if (!confirm(`Update Per-Worker Rate to ${rate} logs/s?\n(This will restart all workers)`)) return;
-
-            const btn = document.querySelector('button[onclick="updateWorkerRate()"]');
-            btn.innerText = "UPDATING...";
-
-            try {
-                const res = await fetch(`/config/worker-rate?rate=${rate}`, { method: 'POST' });
-                if (res.ok) alert("Configuration updated! Workers are restarting...");
-                else alert("Update failed");
-            } catch (e) {
-                alert("Connection error");
-            } finally {
-                btn.innerText = "APPLY";
-            }
-        }
-
         async function startScenario(name) {
             const btn = document.querySelector(`#card-${name} .start-btn`);
             const input = document.querySelector(`#rate-${name}`);
