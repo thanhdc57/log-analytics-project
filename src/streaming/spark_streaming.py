@@ -15,8 +15,8 @@ KAFKA_TOPIC = os.getenv('KAFKA_TOPIC', 'application-logs')
 CHECKPOINT_LOCATION = os.getenv('CHECKPOINT_LOCATION', '/tmp/spark-checkpoints/log-analytics')
 PUSHGATEWAY_URL = os.getenv('PUSHGATEWAY_URL', 'http://pushgateway:9091')
 
-# OPTIMIZATION: Process every 10 seconds instead of continuously
-TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '10 seconds')
+# PROCESSING: Near-continuous (every 1 second)
+TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '1 second')
 
 # Log schema
 LOG_SCHEMA = StructType([
@@ -44,7 +44,7 @@ def create_spark_session():
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.streaming.backpressure.enabled", "true") \
-        .config("spark.sql.shuffle.partitions", "4") \
+        .config("spark.sql.shuffle.partitions", "10") \
         .getOrCreate()
 
 

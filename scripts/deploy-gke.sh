@@ -85,7 +85,7 @@ for i in {1..5}; do
     echo "   🔄 Attempt $i/5 to create topic..."
     kubectl delete pod kafka-init-topic -n log-analytics --ignore-not-found >/dev/null 2>&1
     if kubectl run -n log-analytics kafka-init-topic --image=confluentinc/cp-kafka:7.5.0 --restart=Never --rm --attach -- \
-        kafka-topics --create --topic application-logs --bootstrap-server log-analytics-kafka-kafka-bootstrap.log-analytics.svc.cluster.local:9092 --partitions 3 --replication-factor 1 --if-not-exists; then
+        kafka-topics --create --topic application-logs --bootstrap-server log-analytics-kafka-kafka-bootstrap.log-analytics.svc.cluster.local:9092 --partitions 10 --replication-factor 1 --if-not-exists; then
         echo "   ✅ Topic created/verified successfully."
         break
     else
