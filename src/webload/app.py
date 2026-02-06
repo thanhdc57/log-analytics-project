@@ -60,10 +60,10 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": 200},       # 1 worker @ 200 logs/s
-    "stress": {"rate": 2000},        # 1 worker @ 2000 logs/s
-    "spike": {"rate": 5000},         # 2 workers @ 2500 logs/s each
-    "endurance": {"rate": 1000},     # 1 worker @ 1000 logs/s
+    "baseline": {"rate": 2000},       # 1 worker @ 2000 logs/s
+    "stress": {"rate": 10000},        # 3 workers @ 3333 logs/s each
+    "spike": {"rate": 20000},         # 5 workers @ 4000 logs/s each
+    "endurance": {"rate": 5000},      # 2 workers @ 2500 logs/s each
 }
 
 # Maximum logs/s a single worker can produce
