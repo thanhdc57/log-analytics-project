@@ -61,13 +61,13 @@ HTTP_ENDPOINTS = [
 
 SCENARIOS = {
     "baseline": {"rate": 200, "duration": 86400},      # 1 worker @ 200 logs/s
-    "stress": {"rate": 2000, "duration": 600},         # 2 workers @ 1000 logs/s
-    "spike": {"rate": 5000, "duration": 180},          # 5 workers @ 1000 logs/s
+    "stress": {"rate": 2000, "duration": 600},         # 1 worker @ 2000 logs/s
+    "spike": {"rate": 5000, "duration": 180},          # 2 workers @ 2500 logs/s each
     "endurance": {"rate": 1000, "duration": 1800},     # 1 worker @ 1000 logs/s
 }
 
 # Maximum logs/s a single worker can produce
-MAX_WORKER_RATE = 1000
+MAX_WORKER_RATE = 4000
 
 _lock = threading.Lock()
 _running = False
