@@ -331,7 +331,7 @@ def startup_event():
                     _stop_event.clear()
                     _thread = threading.Thread(
                         target=_run_scenario,
-                        args=(worker_rate, 86400),  # Run for 24 hours
+                        args=(worker_rate,),  # Run indefinitely until stopped
                         daemon=True,
                     )
                     _thread.start()
