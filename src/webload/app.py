@@ -60,10 +60,10 @@ HTTP_ENDPOINTS = [
 ]
 
 SCENARIOS = {
-    "baseline": {"rate": 200, "duration": 86400},      # 1 worker @ 200 logs/s
-    "stress": {"rate": 2000, "duration": 600},         # 1 worker @ 2000 logs/s
-    "spike": {"rate": 5000, "duration": 180},          # 2 workers @ 2500 logs/s each
-    "endurance": {"rate": 1000, "duration": 1800},     # 1 worker @ 1000 logs/s
+    "baseline": {"rate": 200},       # 1 worker @ 200 logs/s
+    "stress": {"rate": 2000},        # 1 worker @ 2000 logs/s
+    "spike": {"rate": 5000},         # 2 workers @ 2500 logs/s each
+    "endurance": {"rate": 1000},     # 1 worker @ 1000 logs/s
 }
 
 # Maximum logs/s a single worker can produce
@@ -95,7 +95,7 @@ def _make_log(req_id: int):
     }
 
 
-def _run_scenario(rate: int, duration: int):
+def _run_scenario(rate: int):
     global _running
     producer = KafkaProducer(
         bootstrap_servers=KAFKA_BOOTSTRAP_SERVERS.split(","),
@@ -110,7 +110,7 @@ def _run_scenario(rate: int, duration: int):
     logs_per_second.set(rate)
 
     try:
-        while not _stop_event.is_set() and (time.time() - start) < duration:
+        while not _stop_event.is_set():
             batch_start = time.time()
             for _ in range(rate):
                 req_id += 1
@@ -277,22 +277,8 @@ def start(name: str, rate: int = None):
                 _current["rate"] = f"{workers_needed} workers × {rate_per_worker} logs/s = {target_rate} total"
                 _current["started_at"] = datetime.utcnow().isoformat() + "Z"
              
-             # Monitor Thread for Cluster Mode Duration
-             def _monitor_cluster_scenario(duration):
-                global _running
-                logger.info(f"Monitor: Waiting for {duration}s or stop event...")
-                if not _stop_event.wait(duration):
-                    # Timeout reached -> Scale Down
-                    logger.info("Monitor: Duration expired. Auto-scaling to 0.")
-                    cluster_manager.scale_workers(0)
-                    with _lock:
-                        _running = False
-                        _current["scenario"] = None
-                else:
-                    logger.info("Monitor: Stopped manually.")
-
+             # No duration monitor - runs until stopped manually
              _stop_event.clear()
-             threading.Thread(target=_monitor_cluster_scenario, args=(SCENARIOS[name]["duration"],), daemon=True).start()
 
              return JSONResponse({"ok": True, "scenario": name, "mode": "cluster", "workers": workers_needed, "rate_per_worker": rate_per_worker})
         else:
@@ -312,7 +298,7 @@ def start(name: str, rate: int = None):
     _stop_event.clear()
     _thread = threading.Thread(
         target=_run_scenario,
-        args=(target_rate, SCENARIOS[name]["duration"]),
+        args=(target_rate,),
         daemon=True,
     )
     _thread.start()

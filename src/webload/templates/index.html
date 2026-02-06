@@ -250,10 +250,7 @@
                     <span>Target Rate</span>
                     <span class="value" data-rate="{{ cfg.rate }}">{{ "{:,}".format(cfg.rate) }} logs/s</span>
                 </div>
-                <div class="metric">
-                    <span>Duration</span>
-                    <span class="value">{{ cfg.duration }}s</span>
-                </div>
+
                 {% if name == 'spike' %}
                 <div class="metric" style="color: var(--primary); margin-top:5px; font-size: 0.8rem">
                     ⚡ High Load (Flash Sale)
