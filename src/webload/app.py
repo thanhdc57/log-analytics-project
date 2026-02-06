@@ -326,29 +326,30 @@ def startup_event():
         logger.info("Checking AUTO_START configuration...")
         auto_start_env = os.getenv("AUTO_START", "false").lower()
         if auto_start_env == "true":
-            logger.info("AUTO_START is enabled. Starting baseline scenario...")
+            # Read the rate from BASELINE_RATE env (set by manager before scaling)
+            worker_rate = int(os.getenv("BASELINE_RATE", 200))
+            logger.info(f"AUTO_START enabled. Starting with rate: {worker_rate} logs/s")
+            
             # Give Kafka a moment to be ready
             time.sleep(10)
             
-            # Simulate a start request
             global _running, _thread
-            name = "baseline"
             
             with _lock:
                 if not _running:
                     _running = True
-                    _current["scenario"] = name
-                    _current["rate"] = SCENARIOS[name]["rate"]
+                    _current["scenario"] = "auto"
+                    _current["rate"] = worker_rate
                     _current["started_at"] = datetime.utcnow().isoformat() + "Z"
                     
                     _stop_event.clear()
                     _thread = threading.Thread(
                         target=_run_scenario,
-                        args=(SCENARIOS[name]["rate"], SCENARIOS[name]["duration"]),
+                        args=(worker_rate, 86400),  # Run for 24 hours
                         daemon=True,
                     )
                     _thread.start()
-                    logger.info(f"Auto-started scenario: {name}")
+                    logger.info(f"Auto-started with rate: {worker_rate} logs/s")
 
     threading.Thread(target=auto_start, daemon=True).start()
 
