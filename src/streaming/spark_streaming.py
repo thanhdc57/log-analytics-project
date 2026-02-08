@@ -109,42 +109,14 @@ def extract_patterns(message, http_path, stack_trace):
     patterns_found = []
     
     # Multiple regex patterns (CPU-intensive)
-    regex_patterns = [
-        r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})',  # IP addresses
-        r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)',  # Emails
-        r'(error|exception|fail|timeout|refused)',  # Error keywords
-        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})',  # Timestamps
-        r'(uuid-[a-f0-9-]{36})',  # UUIDs
-        r'(req-\d{8})',  # Request IDs
-        r'(trace-\d{6})',  # Trace IDs
-        r'(/api/v\d+/\w+)',  # API paths
-        r'(user[_-]?id[=:]\s*\d+)',  # User IDs
-        r'(order[_-]?id[=:]\s*\d+)',  # Order IDs
-    ]
+    # Simple pattern matching (reduced set)
+    if "error" in combined_text.lower() or "exception" in combined_text.lower():
+        patterns_found.append("error_keyword")
     
-    combined_text = f"{message} {http_path} {stack_trace}"
+    # Simple word count metric instead of entropy
+    words = combined_text.split()
+    return len(patterns_found) + len(words) // 10
     
-    for pattern in regex_patterns:
-        matches = re.findall(pattern, combined_text, re.IGNORECASE)
-        patterns_found.extend(matches[:5])  # Limit to 5 matches per pattern
-    
-    # Additional string operations
-    words = combined_text.lower().split()
-    word_count = len(words)
-    unique_words = len(set(words))
-    
-    # Compute text entropy (CPU-intensive)
-    entropy = 0.0
-    if word_count > 0:
-        word_freq = {}
-        for word in words:
-            word_freq[word] = word_freq.get(word, 0) + 1
-        for freq in word_freq.values():
-            p = freq / word_count
-            if p > 0:
-                entropy -= p * math.log2(p)
-    
-    return len(patterns_found)
 
 
 def compute_request_fingerprint(http_method, http_path, service, client_ip):
@@ -157,16 +129,11 @@ def compute_request_fingerprint(http_method, http_path, service, client_ip):
     
     data = f"{http_method}:{http_path}:{service}:{client_ip or 'unknown'}"
     
-    # Hash computations (tuned for 5 workers @ 20k logs/s)
+    # Hash computations (Simplified)
     md5_hash = hashlib.md5(data.encode()).hexdigest()
-    sha256_hash = hashlib.sha256(data.encode()).hexdigest()
     
-    # Combine and rehash (reduced iterations)
-    combined = f"{md5_hash}{sha256_hash}"
-    for _ in range(5):  # 5 iterations (reduced from 20)
-        combined = hashlib.sha256(combined.encode()).hexdigest()
-    
-    return combined[:32]
+    # Just return MD5, no heavy rehashing loop
+    return md5_hash[:32]
 
 
 def simulate_ml_classification(level, http_status, response_time, service):
@@ -198,26 +165,14 @@ def simulate_ml_classification(level, http_status, response_time, service):
     for s in services:
         features.append(1.0 if service == s else 0.0)
     
-    # Simulate neural network forward pass (2 hidden layers - tuned for 5 workers)
-    import random
-    random.seed(hash(str(features)) % (2**32))
+    # Simplified simulation (random based on input hash)
+    # deterministic randomness based on features
+    input_hash = hash(str(features))
     
-    # Layer 1: 12 -> 4
-    hidden1 = []
-    for i in range(4):
-        val = sum(f * random.uniform(-1, 1) for f in features)
-        hidden1.append(max(0, val))  # ReLU
+    # Simple linear combination instead of neural net simulation
+    score = (input_hash % 100)
     
-    # Layer 2: 4 -> 1
-    output = sum(h * random.uniform(-1, 1) for h in hidden1)
-    
-    # Sigmoid activation
-    try:
-        severity = int(100 / (1 + math.exp(-output)))
-    except:
-        severity = 50
-    
-    return severity
+    return score
 
 
 # Register UDFs with Spark
