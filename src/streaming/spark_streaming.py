@@ -250,7 +250,7 @@ def read_from_kafka(spark):
         .option("subscribe", KAFKA_TOPIC) \
         .option("startingOffsets", "latest") \
         .option("failOnDataLoss", "false") \
-        .option("maxOffsetsPerTrigger", "25000") \
+        .option("maxOffsetsPerTrigger", "10000") \
         .load()
 
 
