@@ -107,6 +107,7 @@ def extract_patterns(message, http_path, stack_trace):
         stack_trace = ""
     
     patterns_found = []
+    combined_text = f"{message} {http_path} {stack_trace}"
     
     # Multiple regex patterns (CPU-intensive)
     # Simple pattern matching (reduced set)
