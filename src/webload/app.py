@@ -342,12 +342,20 @@ def startup_event():
 
 @app.post("/stop")
 def stop():
+    global _running
+    
     if CLUSTER_MODE and cluster_manager:
         logger.info("Stop requested. Scaling workers to 0...")
         cluster_manager.scale_workers(0)
-
-    if not _running:
-        return JSONResponse({"ok": True, "message": "No scenario running (Workers scaled down)"})
     
     _stop_event.set()
-    return JSONResponse({"ok": True})
+    
+    # Reset state so UI shows stopped
+    with _lock:
+        _running = False
+        _current["scenario"] = None
+        _current["rate"] = 0
+        _current["started_at"] = None
+    
+    return JSONResponse({"ok": True, "message": "Stopped"})
+
