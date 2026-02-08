@@ -630,7 +630,7 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "sum(spark_logs_per_batch) by (service)",
+                        "expr": "sum(rate(spark_logs_per_batch[30s])) by (service) * 30",
                         "legendFormat": "{{service}}",
                         "refId": "A"
                     }
