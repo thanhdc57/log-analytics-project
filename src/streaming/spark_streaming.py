@@ -3,7 +3,7 @@ from pyspark.sql.functions import (
     from_json, col, window, count, avg, sum as spark_sum,
     when, expr, current_timestamp, udf, lit, length, 
     regexp_extract, split, explode, lower, trim,
-    hash, abs as spark_abs, concat, substring, md5,
+    abs as spark_abs, concat, substring, md5,
     stddev, variance, min as spark_min, max as spark_max,
     collect_list, size, array_distinct, countDistinct
 )
