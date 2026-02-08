@@ -704,12 +704,12 @@ data:
                 "pluginVersion": "10.1.0",
                 "targets": [
                     {
-                        "expr": "spark_latency_ms{percentile=\"p95\"}",
+                        "expr": "clamp_min(spark_latency_ms{percentile=\"p95\"} * (rate(spark_logs_per_batch[30s]) > 0), 0)",
                         "legendFormat": "{{service}} P95",
                         "refId": "A"
                     },
                     {
-                        "expr": "spark_latency_ms{percentile=\"p99\"}",
+                        "expr": "clamp_min(spark_latency_ms{percentile=\"p99\"} * (rate(spark_logs_per_batch[30s]) > 0), 0)",
                         "legendFormat": "{{service}} P99",
                         "refId": "B"
                     }
