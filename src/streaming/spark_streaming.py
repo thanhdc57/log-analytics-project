@@ -340,16 +340,17 @@ def push_all_metrics(batch_df, batch_id):
                          'Response latency', 
                          ['service', 'percentile'], registry=registry)
     
-    # Check if batch is empty - push zeros
-    if batch_df.isEmpty():
-        # Push zeros for common services to show idle state
+    # Use count() instead of isEmpty() - triggers computation on Workers
+    total_count = batch_df.count()
+    
+    if total_count == 0:
+        # Push zeros for common services
         for service in ['api-gateway', 'user-service', 'order-service', 'payment-service', 'auth-service', 'notification-service']:
             for level in ['INFO', 'ERROR', 'DEBUG', 'WARN']:
                 log_gauge.labels(service=service, level=level).set(0)
             error_gauge.labels(service=service).set(0)
             for percentile in ['p50', 'p95', 'p99']:
                 latency_gauge.labels(service=service, percentile=percentile).set(0)
-        
         try:
             push_to_gateway(PUSHGATEWAY_URL, job='spark_streaming', registry=registry)
             print(f"[Batch {batch_id}] No logs - pushed zeros (idle)")
@@ -357,7 +358,7 @@ def push_all_metrics(batch_df, batch_id):
             print(f"[Batch {batch_id}] Failed to push: {e}")
         return
     
-    # Calculate metrics (heavy processing already done, just aggregate)
+    # Aggregate on Workers, collect only small summary
     metrics = batch_df.groupBy("service", "level").agg(
         count("*").alias("log_count"),
         avg("response_time_ms").alias("avg_latency"),
@@ -366,19 +367,17 @@ def push_all_metrics(batch_df, batch_id):
         expr("percentile_approx(response_time_ms, 0.99)").alias("p99"),
         count(when(col("level") == "ERROR", 1)).alias("error_count"),
         count("*").alias("total_count")
-    ).collect()
+    ).coalesce(1).collect()  # Coalesce to 1 partition for small result
     
-    # Push metrics
+    # Push metrics (small data, fast)
     service_totals = {}
     service_errors = {}
-    total_logs = 0
     
     for row in metrics:
         service = row.service
         level = row.level
         
         log_gauge.labels(service=service, level=level).set(row.log_count)
-        total_logs += row.log_count
         
         service_totals[service] = service_totals.get(service, 0) + row.total_count
         service_errors[service] = service_errors.get(service, 0) + row.error_count
@@ -397,7 +396,7 @@ def push_all_metrics(batch_df, batch_id):
     # Push to gateway
     try:
         push_to_gateway(PUSHGATEWAY_URL, job='spark_streaming', registry=registry)
-        print(f"[Batch {batch_id}] Processed {total_logs} logs (with heavy CPU enrichment)")
+        print(f"[Batch {batch_id}] Processed {total_count} logs (Workers did heavy CPU work)")
     except Exception as e:
         print(f"[Batch {batch_id}] Failed to push: {e}")
 
