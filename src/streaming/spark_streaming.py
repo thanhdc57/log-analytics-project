@@ -323,11 +323,9 @@ def push_all_metrics(batch_df, batch_id):
     """
     Push ONLY original metrics (logs, error rate, latency)
     Heavy CPU processing already done in enrichment step
+    When batch is empty, push 0 values so Grafana shows proper idle state
     """
     from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
-    
-    if batch_df.isEmpty():
-        return
     
     registry = CollectorRegistry()
     
@@ -341,6 +339,23 @@ def push_all_metrics(batch_df, batch_id):
     latency_gauge = Gauge('spark_latency_ms', 
                          'Response latency', 
                          ['service', 'percentile'], registry=registry)
+    
+    # Check if batch is empty - push zeros
+    if batch_df.isEmpty():
+        # Push zeros for common services to show idle state
+        for service in ['api-gateway', 'user-service', 'order-service', 'payment-service', 'auth-service', 'notification-service']:
+            for level in ['INFO', 'ERROR', 'DEBUG', 'WARN']:
+                log_gauge.labels(service=service, level=level).set(0)
+            error_gauge.labels(service=service).set(0)
+            for percentile in ['p50', 'p95', 'p99']:
+                latency_gauge.labels(service=service, percentile=percentile).set(0)
+        
+        try:
+            push_to_gateway(PUSHGATEWAY_URL, job='spark_streaming', registry=registry)
+            print(f"[Batch {batch_id}] No logs - pushed zeros (idle)")
+        except Exception as e:
+            print(f"[Batch {batch_id}] Failed to push: {e}")
+        return
     
     # Calculate metrics (heavy processing already done, just aggregate)
     metrics = batch_df.groupBy("service", "level").agg(
