@@ -15,6 +15,13 @@ spec:
       labels:
         app: spark-worker
     spec:
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: spark-worker
       initContainers:
       - name: fix-permissions
         image: busybox
@@ -46,7 +53,7 @@ spec:
           value: "http://pushgateway:9091"
         resources:
           requests:
-            cpu: 1000m
+            cpu: 2000m
             memory: 2Gi
           limits:
             cpu: 2000m
