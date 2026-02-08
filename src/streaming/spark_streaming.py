@@ -1,13 +1,20 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
-    from_json, col, window, count, avg, 
-    when, expr, current_timestamp
+    from_json, col, window, count, avg, sum as spark_sum,
+    when, expr, current_timestamp, udf, lit, length, 
+    regexp_extract, split, explode, lower, trim,
+    hash, abs as spark_abs, concat, substring, md5,
+    stddev, variance, min as spark_min, max as spark_max,
+    collect_list, size, array_distinct, countDistinct
 )
 from pyspark.sql.types import (
     StructType, StructField, StringType, 
-    IntegerType
+    IntegerType, FloatType, ArrayType, DoubleType
 )
 import os
+import hashlib
+import re
+import math
 
 # Configuration
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'kafka-1:29092,kafka-2:29093,kafka-3:29094')
@@ -17,6 +24,9 @@ PUSHGATEWAY_URL = os.getenv('PUSHGATEWAY_URL', 'http://pushgateway:9091')
 
 # PROCESSING: Near-continuous (every 1 second)
 TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '1 second')
+
+# CPU Intensity Level (1-5, higher = more CPU usage)
+CPU_INTENSITY = int(os.getenv('CPU_INTENSITY', '3'))
 
 # Log schema
 LOG_SCHEMA = StructType([
@@ -36,15 +46,199 @@ LOG_SCHEMA = StructType([
 ])
 
 
+# ============================================================
+# CPU-INTENSIVE UDFs (User Defined Functions)
+# These simulate real-world heavy processing tasks
+# ============================================================
+
+def compute_anomaly_score(response_time, http_status, level):
+    """
+    Simulate ML-based anomaly detection computation
+    Uses multiple mathematical operations to increase CPU load
+    """
+    if response_time is None or http_status is None:
+        return 0.0
+    
+    score = 0.0
+    
+    # Base score from response time (simulating feature extraction)
+    if response_time > 0:
+        # Multiple expensive math operations
+        log_rt = math.log(response_time + 1)
+        sqrt_rt = math.sqrt(response_time)
+        score += (log_rt * sqrt_rt) / 100
+    
+    # Status code scoring (simulating one-hot encoding + weighting)
+    status_weights = {
+        200: 0.0, 201: 0.0, 204: 0.1,
+        400: 0.5, 401: 0.6, 403: 0.7, 404: 0.4,
+        500: 1.0, 502: 0.9, 503: 0.95
+    }
+    score += status_weights.get(http_status, 0.3)
+    
+    # Level scoring
+    level_weights = {'DEBUG': 0.0, 'INFO': 0.1, 'WARN': 0.5, 'ERROR': 1.0}
+    score += level_weights.get(level, 0.2)
+    
+    # Normalize with sigmoid (expensive computation)
+    try:
+        normalized = 1 / (1 + math.exp(-score))
+    except:
+        normalized = 0.5
+    
+    # Additional CPU burn: hash iterations (tuned for 5 workers @ 20k logs/s)
+    data = f"{response_time}-{http_status}-{level}"
+    for _ in range(3):  # 3 iterations (reduced from 10)
+        data = hashlib.sha256(data.encode()).hexdigest()
+    
+    return round(normalized * 100, 2)
+
+
+def extract_patterns(message, http_path, stack_trace):
+    """
+    Complex pattern extraction using regex
+    Simulates log parsing and pattern recognition
+    """
+    if not message:
+        message = ""
+    if not http_path:
+        http_path = ""
+    if not stack_trace:
+        stack_trace = ""
+    
+    patterns_found = []
+    
+    # Multiple regex patterns (CPU-intensive)
+    regex_patterns = [
+        r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})',  # IP addresses
+        r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)',  # Emails
+        r'(error|exception|fail|timeout|refused)',  # Error keywords
+        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})',  # Timestamps
+        r'(uuid-[a-f0-9-]{36})',  # UUIDs
+        r'(req-\d{8})',  # Request IDs
+        r'(trace-\d{6})',  # Trace IDs
+        r'(/api/v\d+/\w+)',  # API paths
+        r'(user[_-]?id[=:]\s*\d+)',  # User IDs
+        r'(order[_-]?id[=:]\s*\d+)',  # Order IDs
+    ]
+    
+    combined_text = f"{message} {http_path} {stack_trace}"
+    
+    for pattern in regex_patterns:
+        matches = re.findall(pattern, combined_text, re.IGNORECASE)
+        patterns_found.extend(matches[:5])  # Limit to 5 matches per pattern
+    
+    # Additional string operations
+    words = combined_text.lower().split()
+    word_count = len(words)
+    unique_words = len(set(words))
+    
+    # Compute text entropy (CPU-intensive)
+    entropy = 0.0
+    if word_count > 0:
+        word_freq = {}
+        for word in words:
+            word_freq[word] = word_freq.get(word, 0) + 1
+        for freq in word_freq.values():
+            p = freq / word_count
+            if p > 0:
+                entropy -= p * math.log2(p)
+    
+    return len(patterns_found)
+
+
+def compute_request_fingerprint(http_method, http_path, service, client_ip):
+    """
+    Generate unique fingerprint for request deduplication
+    Uses multiple hashing algorithms
+    """
+    if not all([http_method, http_path, service]):
+        return ""
+    
+    data = f"{http_method}:{http_path}:{service}:{client_ip or 'unknown'}"
+    
+    # Hash computations (tuned for 5 workers @ 20k logs/s)
+    md5_hash = hashlib.md5(data.encode()).hexdigest()
+    sha256_hash = hashlib.sha256(data.encode()).hexdigest()
+    
+    # Combine and rehash (reduced iterations)
+    combined = f"{md5_hash}{sha256_hash}"
+    for _ in range(5):  # 5 iterations (reduced from 20)
+        combined = hashlib.sha256(combined.encode()).hexdigest()
+    
+    return combined[:32]
+
+
+def simulate_ml_classification(level, http_status, response_time, service):
+    """
+    Simulate a machine learning classification model
+    for log severity prediction
+    """
+    if not all([level, http_status]):
+        return 0
+    
+    # Feature vector computation (simulating feature engineering)
+    features = []
+    
+    # One-hot encode level
+    levels = ['DEBUG', 'INFO', 'WARN', 'ERROR']
+    for l in levels:
+        features.append(1.0 if level == l else 0.0)
+    
+    # Normalize http_status
+    features.append((http_status - 200) / 500)
+    
+    # Normalize response_time
+    rt = response_time or 0
+    features.append(math.log(rt + 1) / 10)
+    
+    # Service encoding (simulating embedding lookup)
+    services = ['api-gateway', 'auth-service', 'user-service', 
+                'payment-service', 'order-service', 'notification-service']
+    for s in services:
+        features.append(1.0 if service == s else 0.0)
+    
+    # Simulate neural network forward pass (2 hidden layers - tuned for 5 workers)
+    import random
+    random.seed(hash(str(features)) % (2**32))
+    
+    # Layer 1: 12 -> 4
+    hidden1 = []
+    for i in range(4):
+        val = sum(f * random.uniform(-1, 1) for f in features)
+        hidden1.append(max(0, val))  # ReLU
+    
+    # Layer 2: 4 -> 1
+    output = sum(h * random.uniform(-1, 1) for h in hidden1)
+    
+    # Sigmoid activation
+    try:
+        severity = int(100 / (1 + math.exp(-output)))
+    except:
+        severity = 50
+    
+    return severity
+
+
+# Register UDFs with Spark
+anomaly_score_udf = udf(compute_anomaly_score, FloatType())
+pattern_count_udf = udf(extract_patterns, IntegerType())
+fingerprint_udf = udf(compute_request_fingerprint, StringType())
+ml_classification_udf = udf(simulate_ml_classification, IntegerType())
+
+
 def create_spark_session():
-    """Create Spark session with optimized settings"""
+    """Create Spark session with settings for distributed processing"""
     return SparkSession.builder \
-        .appName("LogAnalyticsStreaming") \
+        .appName("LogAnalyticsStreaming-HeavyProcessing") \
         .config("spark.sql.streaming.checkpointLocation", CHECKPOINT_LOCATION) \
         .config("spark.jars.packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.0") \
         .config("spark.sql.adaptive.enabled", "true") \
         .config("spark.streaming.backpressure.enabled", "true") \
-        .config("spark.sql.shuffle.partitions", "10") \
+        .config("spark.sql.shuffle.partitions", "20") \
+        .config("spark.default.parallelism", "20") \
+        .config("spark.executor.cores", "2") \
+        .config("spark.task.cpus", "1") \
         .getOrCreate()
 
 
@@ -56,7 +250,7 @@ def read_from_kafka(spark):
         .option("subscribe", KAFKA_TOPIC) \
         .option("startingOffsets", "latest") \
         .option("failOnDataLoss", "false") \
-        .option("maxOffsetsPerTrigger", "10000") \
+        .option("maxOffsetsPerTrigger", "25000") \
         .load()
 
 
@@ -71,10 +265,64 @@ def parse_logs(kafka_df):
         .select("log.*", "kafka_timestamp")
 
 
+def enrich_with_heavy_processing(parsed_df):
+    """
+    Apply CPU-intensive transformations to the data
+    This is where the heavy processing happens
+    """
+    enriched = parsed_df \
+        .withColumn(
+            "anomaly_score",
+            anomaly_score_udf(col("response_time_ms"), col("http_status"), col("level"))
+        ) \
+        .withColumn(
+            "pattern_count",
+            pattern_count_udf(col("message"), col("http_path"), col("stack_trace"))
+        ) \
+        .withColumn(
+            "request_fingerprint",
+            fingerprint_udf(col("http_method"), col("http_path"), col("service"), col("client_ip"))
+        ) \
+        .withColumn(
+            "ml_severity",
+            ml_classification_udf(col("level"), col("http_status"), col("response_time_ms"), col("service"))
+        ) \
+        .withColumn(
+            "is_anomaly",
+            when(col("anomaly_score") > 60, 1).otherwise(0)
+        ) \
+        .withColumn(
+            "is_critical",
+            when(
+                (col("level") == "ERROR") | 
+                (col("http_status") >= 500) | 
+                (col("anomaly_score") > 80),
+                1
+            ).otherwise(0)
+        ) \
+        .withColumn(
+            "latency_bucket",
+            when(col("response_time_ms") < 50, "fast")
+            .when(col("response_time_ms") < 200, "normal")
+            .when(col("response_time_ms") < 500, "slow")
+            .otherwise("very_slow")
+        ) \
+        .withColumn(
+            "path_hash",
+            md5(col("http_path"))
+        ) \
+        .withColumn(
+            "combined_hash",
+            md5(concat(col("service"), lit(":"), col("http_method"), lit(":"), col("http_path")))
+        )
+    
+    return enriched
+
+
 def push_all_metrics(batch_df, batch_id):
     """
-    OPTIMIZED: Push ALL metrics in ONE function call
-    Combines: log counts, error rates, and latency percentiles
+    Push ONLY original metrics (logs, error rate, latency)
+    Heavy CPU processing already done in enrichment step
     """
     from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
     
@@ -83,7 +331,7 @@ def push_all_metrics(batch_df, batch_id):
     
     registry = CollectorRegistry()
     
-    # Metric definitions - Using Gauge since we push fresh values each batch
+    # Original metric definitions only
     log_gauge = Gauge('spark_logs_per_batch', 
                       'Logs processed per batch by service and level', 
                       ['service', 'level'], registry=registry)
@@ -94,8 +342,7 @@ def push_all_metrics(batch_df, batch_id):
                          'Response latency', 
                          ['service', 'percentile'], registry=registry)
     
-    # Calculate all metrics in one pass using Spark SQL
-    # This avoids multiple collect() calls
+    # Calculate metrics (heavy processing already done, just aggregate)
     metrics = batch_df.groupBy("service", "level").agg(
         count("*").alias("log_count"),
         avg("response_time_ms").alias("avg_latency"),
@@ -106,22 +353,21 @@ def push_all_metrics(batch_df, batch_id):
         count("*").alias("total_count")
     ).collect()
     
-    # Service-level aggregates for error rate
+    # Push metrics
     service_totals = {}
     service_errors = {}
+    total_logs = 0
     
     for row in metrics:
         service = row.service
         level = row.level
         
-        # Log counts per batch (Gauge - shows current batch count)
         log_gauge.labels(service=service, level=level).set(row.log_count)
+        total_logs += row.log_count
         
-        # Accumulate for error rate calculation
         service_totals[service] = service_totals.get(service, 0) + row.total_count
         service_errors[service] = service_errors.get(service, 0) + row.error_count
         
-        # Latency (first row per service wins)
         if row.p50 is not None:
             latency_gauge.labels(service=service, percentile='p50').set(row.p50)
             latency_gauge.labels(service=service, percentile='p95').set(row.p95 or 0)
@@ -133,35 +379,45 @@ def push_all_metrics(batch_df, batch_id):
             error_rate = (service_errors.get(service, 0) / total) * 100
             error_gauge.labels(service=service).set(error_rate)
     
-    # Single push with all metrics
+    # Push to gateway
     try:
         push_to_gateway(PUSHGATEWAY_URL, job='spark_streaming', registry=registry)
-        print(f"[Batch {batch_id}] Pushed metrics for {len(metrics)} service-level combinations")
+        print(f"[Batch {batch_id}] Processed {total_logs} logs (with heavy CPU enrichment)")
     except Exception as e:
         print(f"[Batch {batch_id}] Failed to push: {e}")
 
 
 def main():
-    print("Starting Optimized Spark Streaming Log Analytics...")
+    print("=" * 60)
+    print("Starting CPU-Intensive Spark Streaming Log Analytics")
+    print("=" * 60)
     print(f"Trigger Interval: {TRIGGER_INTERVAL}")
+    print("Features: Anomaly Detection, ML Classification, Pattern Extraction")
+    print("Note: Heavy processing for CPU scaling demo, original metrics only")
+    print("=" * 60)
     
     spark = create_spark_session()
     spark.sparkContext.setLogLevel("WARN")
     
     try:
-        # Read and parse
+        # Read from Kafka
         kafka_df = read_from_kafka(spark)
+        
+        # Parse JSON
         parsed_df = parse_logs(kafka_df)
         
-        # OPTIMIZED: Single query with trigger interval
-        query = parsed_df.writeStream \
+        # Apply heavy CPU-intensive processing (this is the key part)
+        enriched_df = enrich_with_heavy_processing(parsed_df)
+        
+        # Stream processing with original metrics push
+        query = enriched_df.writeStream \
             .outputMode("append") \
             .trigger(processingTime=TRIGGER_INTERVAL) \
             .foreachBatch(push_all_metrics) \
-            .queryName("unified_metrics") \
+            .queryName("cpu_intensive_analytics") \
             .start()
         
-        print("Streaming query started. Processing logs...")
+        print("Streaming query started. Processing logs with heavy computation...")
         query.awaitTermination()
         
     except Exception as e:
@@ -172,3 +428,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -32,6 +32,8 @@ derby.log
 
 # Reports
 load-tests/reports/*.html
+reports
+scripts/convert_to_word.py
 
 # Data
 data/
