@@ -9,7 +9,7 @@ Hệ thống phân tích log real-time mô phỏng kiến trúc E-commerce (Shop
 - **High Throughput**: Xử lý tới **20,000 logs/s** (tương đương Flash Sale).
 - **Real-time Processing**: Spark Streaming xử lý dữ liệu với độ trễ thấp (< 1s).
 - **Auto-scaling đa tầng**:
-    - **Log Workers**: Tự động scale từ 1 -> 20 workers theo kịch bản tải (Cluster Manager).
+    - **Log Workers**: Tự động scale từ 1 -> 5 workers theo kịch bản tải (Cluster Manager).
     - **Spark Workers**: Tự động scale từ 1 -> 5 workers theo CPU (K8s HPA).
 - **Full Observability**: Dashboard Grafana giám sát toàn diện (Business Metrics, System Health, Kafka Lag).
 
@@ -50,9 +50,10 @@ log-analytics-project/
 
 ### Các Bước Triển Khai
 1. **Cấu hình Project ID:**
+   Thiết lập biến môi trường `GCP_PROJECT_ID` (được sử dụng bởi script deploy) và cấu hình gcloud.
    ```bash
-   export PROJECT_ID=your-project-id
-   gcloud config set project $PROJECT_ID
+   export GCP_PROJECT_ID=your-project-id
+   gcloud config set project $GCP_PROJECT_ID
    ```
 
 2. **Chạy Script Deploy:**
@@ -61,6 +62,7 @@ log-analytics-project/
    chmod +x scripts/deploy-gke.sh
    ./scripts/deploy-gke.sh
    ```
+   > **Lưu ý:** Nếu bạn muốn thay đổi Project ID mặc định vĩnh viễn, bạn có thể chỉnh sửa trực tiếp dòng `PROJECT_ID` trong file `scripts/deploy-gke.sh`.
 
 3. **Truy Cập Hệ Thống:**
    Sau khi deploy xong, script sẽ xuất ra các đường dẫn truy cập:
@@ -75,9 +77,9 @@ Hệ thống hỗ trợ 4 kịch bản mô phỏng thực tế:
 | Kịch Bản | Mục Tiêu (Logs/s) | Số Worker (Scale) | Mô Tả |
 |----------|-------------------|-------------------|-------|
 | **Baseline** | 1,000 | 1 | Ngày thường, traffic ổn định. |
-| **Endurance** | 3,000 | 3 | Giờ cao điểm tối (Evening Peak). |
-| **Stress** | 10,000 | 10 | **9.9 Sale Campaign**. |
-| **Spike** | 20,000 | 20 | **Flash Sale 0h**. Traffic nổ tung. |
+| **Endurance** | 3,000 | 2 | Giờ cao điểm tối (Evening Peak). |
+| **Stress** | 10,000 | 3 | **9.9 Sale Campaign**. |
+| **Spike** | 20,000 | 5 | **Flash Sale 0h**. Traffic nổ tung. |
 
 ## 📈 Cơ Chế Auto-Scaling
 
@@ -85,7 +87,7 @@ Hệ thống hỗ trợ 4 kịch bản mô phỏng thực tế:
 - **Cơ chế**: `Log Web Manager` nhận lệnh từ UI -> Gọi K8s API để patch số lượng replica của `log-web-worker`.
 - **Logic**: 
     - Baseline -> 1 Replica.
-    - Spike -> 20 Replicas.
+    - Spike -> 5 Replicas.
     - Stop/Timeout -> 0 Replicas (Tiết kiệm tài nguyên).
 
 ### 2. Spark Worker Scaling (K8s HPA)

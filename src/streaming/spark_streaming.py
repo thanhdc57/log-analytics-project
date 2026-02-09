@@ -23,10 +23,10 @@ CHECKPOINT_LOCATION = os.getenv('CHECKPOINT_LOCATION', '/tmp/spark-checkpoints/l
 PUSHGATEWAY_URL = os.getenv('PUSHGATEWAY_URL', 'http://pushgateway:9091')
 
 # PROCESSING: Near-continuous (every 1 second)
-TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '1 second')
+TRIGGER_INTERVAL = os.getenv('TRIGGER_INTERVAL', '3 seconds')
 
 # CPU Intensity Level (1-5, higher = more CPU usage)
-CPU_INTENSITY = int(os.getenv('CPU_INTENSITY', '3'))
+CPU_INTENSITY = int(os.getenv('CPU_INTENSITY', '5'))
 
 # Log schema
 LOG_SCHEMA = StructType([
@@ -108,6 +108,7 @@ def extract_patterns(message, http_path, stack_trace):
     
     patterns_found = []
     combined_text = f"{message} {http_path} {stack_trace}"
+    
     
     # Multiple regex patterns (CPU-intensive)
     # Simple pattern matching (reduced set)
@@ -206,6 +207,8 @@ def read_from_kafka(spark):
         .option("subscribe", KAFKA_TOPIC) \
         .option("startingOffsets", "latest") \
         .option("failOnDataLoss", "false") \
+        .option("kafka.request.timeout.ms", "120000") \
+        .option("kafka.session.timeout.ms", "120000") \
         .option("maxOffsetsPerTrigger", "25000") \
         .load()
 
